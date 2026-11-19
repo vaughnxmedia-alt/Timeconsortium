@@ -1,0 +1,39 @@
+---
+interface Props {
+  id: string;
+  eyebrow: string;
+  name: string;
+  tagline: string;
+  summary: string;
+  meta?: string;
+  button: string;
+  href: string;
+  image: { src: string; alt: string; width: number; height: number; position: string };
+}
+
+const { id, eyebrow, name, tagline, summary, meta, button, href, image } = Astro.props;
+---
+
+<section class="featured" aria-labelledby={id}>
+  <div class="featured-spread">
+    <figure class="frame">
+      <img
+        src={image.src}
+        alt={image.alt}
+        width={image.width}
+        height={image.height}
+        style={`object-position: ${image.position}`}
+        loading="lazy"
+        decoding="async"
+      />
+    </figure>
+    <div class="featured-copy">
+      <p class="eyebrow">{eyebrow}</p>
+      <h2 id={id}>{name}</h2>
+      <p class="tagline">{tagline}</p>
+      <p>{summary}</p>
+      {meta && <p class="date-line">{meta}</p>}
+      <a class="button" href={href}>{button}</a>
+    </div>
+  </div>
+</section>

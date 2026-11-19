@@ -185,6 +185,7 @@ export const eveningPage = {
 export const images: {
   header: ImageSlot;
   arrival: ImageSlot;
+  evening: ImageSlot;
   tablescape: ImageSlot;
   runway: ImageSlot;
 } = {
@@ -199,6 +200,12 @@ export const images: {
     alt: "Guests in eveningwear arriving together at dusk between oxblood curtains, with candlelight along a garden path.",
     width: 411,
     height: 548,
+  },
+  evening: {
+    src: "/images/evening-bridal.jpg",
+    alt: "A bride in a flowing white gown and sheer veil holds a paper parasol on a hilltop deck at sunset.",
+    width: 819,
+    height: 1024,
   },
   tablescape: {
     src: "/images/tablescape.jpg",
@@ -250,6 +257,101 @@ export const featuredExperience = {
     height: 819,
     position: "center 55%",
   },
+};
+
+const namibia = (file: string) => `/images/namibia/${file}`;
+
+export const namibiaEditorial = {
+  path: "/discover/namibia-editorial",
+  title: "The Namibia Editorial | Timeless Consortium",
+  description:
+    "A Timeless Consortium editorial photographed in Namibia: a parasol lifted into the sunset, a cello played in the open air, and the small details of the evening.",
+  feature: {
+    eyebrow: "A Timeless Consortium editorial",
+    name: "The Namibia Editorial",
+    tagline: "An evening in the last light.",
+    summary:
+      "A parasol lifted into the sunset, a cello played in the open air, and the small details that made the evening worth remembering.",
+    button: "Explore the Editorial",
+  },
+  backLabel: "Back to Discover",
+  heading: "The Namibia Editorial",
+  location: "Photographed in Namibia",
+  opening:
+    "The sun was still on the horizon when the musicians began to play. She lifted her parasol, and the fabric caught the last of the light. In the photographs that followed, the evening comes into focus one detail at a time: the sweep of a veil, a hand on the cello, and the moment before a gift is opened.",
+  hero: {
+    src: namibia("parasol-sunset-wide.jpg"),
+    alt: "A model in a white organza robe with rosette collar smiles beneath a raised paper parasol at sunset, sheer veil sweeping across the frame as a cellist plays behind her.",
+    width: 1024,
+    height: 681,
+    position: "22% 30%",
+  },
+  spreads: [
+    [
+      {
+        src: namibia("full-length-veil.jpg"),
+        alt: "Full-length portrait of the model on a wooden deck at sunset, parasol raised and a long sheer veil billowing around her white gown.",
+        width: 819,
+        height: 1024,
+        caption: "The full silhouette, veil caught in the evening wind.",
+      },
+      {
+        src: namibia("under-the-parasol.jpg"),
+        alt: "Close-up of the model beneath her paper parasol, eyes lowered, rosettes at her collar and a veil framing the sunset behind her.",
+        width: 681,
+        height: 1024,
+        caption: "Beneath the parasol.",
+      },
+    ],
+    [
+      {
+        src: namibia("cellist.jpg"),
+        alt: "A cellist in a grey waistcoat plays with his eyes closed on an open-air deck at dusk, a flutist beside him.",
+        width: 681,
+        height: 1024,
+        caption: "A hand on the cello as the sky turns.",
+      },
+      {
+        src: namibia("flutist.jpg"),
+        alt: "A flutist in a dark suit plays before a music stand at blue hour, city lights glowing on the horizon behind him.",
+        width: 681,
+        height: 1024,
+        caption: "The flute, with the lights coming on below.",
+      },
+    ],
+    [
+      {
+        src: namibia("opening-the-box.jpg"),
+        alt: "The model, seated on a bed with a teal throw, smiles as she lifts the lid of a white presentation box.",
+        width: 819,
+        height: 1024,
+        caption: "The moment before the gift is opened.",
+      },
+      {
+        src: namibia("the-gift.jpg"),
+        alt: "The model laughs with delight as she holds a small black velvet box, sheer sleeves gathered at her wrists.",
+        width: 819,
+        height: 1024,
+        caption: "Opened.",
+      },
+    ],
+    [
+      {
+        src: namibia("hands-on-the-box.jpg"),
+        alt: "Detail of manicured hands reaching into a white presentation box lined with black velvet ring boxes.",
+        width: 681,
+        height: 1024,
+        caption: "Detail: velvet boxes inside the presentation case.",
+      },
+      {
+        src: namibia("timeless-accord.jpg"),
+        alt: "Four Timeless Accord fragrance bottles with gold caps lined up on a white marble ledge beside white roses and eucalyptus.",
+        width: 1024,
+        height: 681,
+        caption: "Timeless Accord, set beside white roses.",
+      },
+    ],
+  ],
 };
 
 export const pages = {

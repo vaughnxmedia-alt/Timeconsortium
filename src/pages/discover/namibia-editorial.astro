@@ -1,0 +1,54 @@
+---
+import Base from "../../layouts/Base.astro";
+import { aboutPage, namibiaEditorial as story } from "../../config/site";
+---
+
+<Base title={story.title} description={story.description} path={story.path}>
+  <article class="story" aria-labelledby="story-title">
+    <p class="story-back">
+      <a class="text-link" href={aboutPage.path}>← {story.backLabel}</a>
+    </p>
+
+    <figure class="story-hero">
+      <img
+        src={story.hero.src}
+        alt={story.hero.alt}
+        width={story.hero.width}
+        height={story.hero.height}
+        fetchpriority="high"
+        decoding="async"
+      />
+    </figure>
+
+    <header class="story-head">
+      <p class="eyebrow">{story.feature.eyebrow}</p>
+      <h1 id="story-title">{story.heading}</h1>
+      <p class="story-location">{story.location}</p>
+      <p class="story-lede">{story.opening}</p>
+    </header>
+
+    {
+      story.spreads.map((pair) => (
+        <div class="story-spread">
+          {pair.map((photo) => (
+            <figure class="story-photo" style={`--ratio: ${photo.width / photo.height}`}>
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                width={photo.width}
+                height={photo.height}
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>{photo.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      ))
+    }
+
+    <p class="story-back story-back-end">
+      <a class="text-link" href={aboutPage.path}>← {story.backLabel}</a>
+    </p>
+  </article>
+</Base>
