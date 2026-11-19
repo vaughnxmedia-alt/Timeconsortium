@@ -1,0 +1,139 @@
+---
+import type { VendorView } from "../lib/vendor/server";
+
+interface Props {
+  vendor: VendorView;
+  actionError?: string;
+}
+
+const { vendor, actionError = "" } = Astro.props;
+const welcome = `Welcome to Reverie & Ember, ${vendor.businessName}. Your vendor request has been accepted. Complete the steps below to confirm your participation.`;
+---
+
+<section class="vendor-dashboard" aria-labelledby="vendor-welcome">
+  <div class="page-mast-inner">
+    {
+      vendor.status === "declined" ? (
+        <>
+          <p class="eyebrow">Exhibitor access</p>
+          <h2 id="vendor-welcome">{vendor.businessName}</h2>
+          <p>Status: {vendor.statusLabel}</p>
+          <p>This request was declined. Further steps are not available.</p>
+        </>
+      ) : (
+        <>
+          <p class="eyebrow">Exhibitor access</p>
+          <h2 id="vendor-welcome">{vendor.businessName}</h2>
+          <p>{welcome}</p>
+          <p>
+            Status: {vendor.statusLabel}
+            {vendor.confirmationDeadline ? ` · Confirmation deadline: ${vendor.confirmationDeadline}` : ""}
+          </p>
+          {
+            vendor.status === "accepted_pending" && (
+              <p>
+                <a class="button" href="#participation">Review &amp; Confirm Participation</a>
+              </p>
+            )
+          }
+          <ol id="participation" class="dashboard-steps">
+            <li>
+              <h3>Review your details</h3>
+              <p>{vendor.included || "Participation details have not been added yet."}</p>
+              <p>
+                {
+                  vendor.confirmationDeadline
+                    ? `Confirmation deadline: ${vendor.confirmationDeadline}`
+                    : "A confirmation deadline has not been set."
+                }
+              </p>
+              <p>
+                {
+                  vendor.feeRequired
+                    ? `Fee: ${vendor.feeLabel}`
+                    : "No participation fee has been set."
+                }
+              </p>
+            </li>
+            <li>
+              <h3>Confirm participation</h3>
+              <p>{vendor.agreement}</p>
+              {
+                vendor.agreementAccepted ? (
+                  <p>You accepted the vendor agreement.</p>
+                ) : (
+                  <form class="form" method="post" action="/api/vendor-checklist">
+                    <input type="hidden" name="intent" value="agreement" />
+                    <label class="check">
+                      <input type="checkbox" name="agree" value="yes" required />
+                      <span>I accept the vendor agreement.</span>
+                    </label>
+                    <button class="button" type="submit">Confirm participation</button>
+                  </form>
+                )
+              }
+            </li>
+            <li>
+              <h3>Payment</h3>
+              {
+                !vendor.feeRequired ? (
+                  <p>No payment is required for this participation.</p>
+                ) : vendor.paymentComplete ? (
+                  <p>Payment has been recorded.</p>
+                ) : vendor.checkoutUrl ? (
+                  <p>
+                    <a class="button" href={vendor.checkoutUrl}>Continue to checkout</a>
+                  </p>
+                ) : (
+                  <p>Hosted checkout is not configured yet. This step cannot be completed until it is.</p>
+                )
+              }
+            </li>
+            <li>
+              <h3>Submit your materials</h3>
+              {
+                vendor.materialsComplete ? (
+                  <p>Your logo, description, and setup needs are on file. You can replace them below.</p>
+                ) : (
+                  <p>Add a link to your logo, a short description of the business, and what you need for setup.</p>
+                )
+              }
+              <form class="form" method="post" action="/api/vendor-checklist">
+                <input type="hidden" name="intent" value="materials" />
+                <div class="field">
+                  <label for="vendor-logo">Logo link</label>
+                  <input id="vendor-logo" name="logoUrl" type="url" inputmode="url" value={vendor.logoUrl} required />
+                </div>
+                <div class="field">
+                  <label for="vendor-description">Short business description</label>
+                  <textarea id="vendor-description" name="description" maxlength="600" required>{vendor.description}</textarea>
+                </div>
+                <div class="field">
+                  <label for="vendor-setup">Setup needs</label>
+                  <textarea id="vendor-setup" name="setupNeeds" maxlength="800" required>{vendor.setupNeeds}</textarea>
+                </div>
+                <button class="button" type="submit">Submit materials</button>
+              </form>
+            </li>
+            <li>
+              <h3>Prepare for event day</h3>
+              {
+                vendor.eventDay.released ? (
+                  <>
+                    {vendor.eventDay.loadIn && <p>Load-in: {vendor.eventDay.loadIn}</p>}
+                    {vendor.eventDay.parking && <p>Parking: {vendor.eventDay.parking}</p>}
+                    {vendor.eventDay.setup && <p>Setup: {vendor.eventDay.setup}</p>}
+                    {vendor.eventDay.contact && <p>Event-day contact: {vendor.eventDay.contact}</p>}
+                  </>
+                ) : (
+                  <p>Load-in, parking, setup instructions, and the event-day contact will appear here when the team releases them.</p>
+                )
+              }
+            </li>
+          </ol>
+          {actionError && <p class="form-error" role="alert">{actionError}</p>}
+        </>
+      )
+    }
+  </div>
+</section>

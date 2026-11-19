@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="Signal House AV">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="78" y="70" width="84" height="52" rx="4"/>
+    <path d="M100 122v18M140 122v18M92 140h56"/>
+    <path d="M96 88h16M96 98h28M96 108h20"/>
+    <path d="M168 82c10 8 10 28 0 36"/>
+    <path d="M178 74c16 12 16 40 0 52"/>
+  </g>
+</svg>

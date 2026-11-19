@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="Brooks Tables">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M78 118h84"/>
+    <path d="M88 118v28M154 118v28"/>
+    <path d="M96 118c0-18 10-32 24-32s24 14 24 32"/>
+    <path d="M108 86c4-10 12-16 12-16s8 6 12 16"/>
+  </g>
+  <text x="120" y="54" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#270716">BT</text>
+</svg>

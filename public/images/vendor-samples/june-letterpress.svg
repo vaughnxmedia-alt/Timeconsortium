@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="June Letterpress">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="120" cy="96" r="34"/>
+    <circle cx="120" cy="96" r="22"/>
+    <path d="M120 74v44M98 96h44"/>
+    <path d="M104 82l32 28M152 82l-32 28"/>
+    <path d="M120 130v18"/>
+    <path d="M108 148h24"/>
+  </g>
+</svg>

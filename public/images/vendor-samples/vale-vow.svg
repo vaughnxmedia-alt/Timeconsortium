@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="Vale and Vow">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="78" y="78" width="84" height="54" rx="8"/>
+    <circle cx="120" cy="105" r="16"/>
+    <circle cx="120" cy="105" r="7"/>
+    <path d="M96 78l8-14h32l8 14"/>
+    <path d="M84 58c10-14 28-18 36-8"/>
+    <path d="M156 58c-10-14-28-18-36-8"/>
+    <path d="M72 70c-8 10-8 24 2 30"/>
+    <path d="M168 70c8 10 8 24-2 30"/>
+  </g>
+</svg>

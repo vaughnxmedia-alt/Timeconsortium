@@ -1,0 +1,113 @@
+---
+import Base from "../layouts/Base.astro";
+import { sponsorPage } from "../config/site";
+import { readNotice } from "../lib/vendor/server";
+
+export const prerender = false;
+
+const saved = await readNotice(Astro.cookies, "sponsor");
+const showError = Astro.url.searchParams.get("error") === "1";
+---
+
+<Base title={sponsorPage.title} description={sponsorPage.description} path={sponsorPage.path}>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">Timeless Consortium</p>
+      <h1>{sponsorPage.heading}</h1>
+      <p>{sponsorPage.intro}</p>
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner">
+      <section id="sponsor-request">
+        <h2>{sponsorPage.submitLabel}</h2>
+        {saved && <p class="confirmation" role="status">{sponsorPage.confirmation}</p>}
+        {showError && (
+          <p class="form-error" role="alert">The inquiry was not saved. Check the fields and try again.</p>
+        )}
+        <form class="form" data-save-form method="post" action="/api/sponsors">
+          <p class="form-error" data-form-error hidden></p>
+          <p class="confirmation" data-form-confirmation hidden>{sponsorPage.confirmation}</p>
+          <div class="hp" hidden aria-hidden="true">
+            <label for="sponsor-company">Company website</label>
+            <input id="sponsor-company" name="company_website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="sponsor-name">Contact name</label>
+            <input id="sponsor-name" name="contactName" type="text" autocomplete="name" maxlength="120" required />
+          </div>
+          <div class="field">
+            <label for="sponsor-organization">Organization</label>
+            <input id="sponsor-organization" name="organization" type="text" autocomplete="organization" maxlength="160" required />
+          </div>
+          <div class="field">
+            <label for="sponsor-email">Email</label>
+            <input id="sponsor-email" name="email" type="email" autocomplete="email" maxlength="200" required />
+          </div>
+          <fieldset class="choices">
+            <legend>Sponsorship interest</legend>
+            <label>
+              <input type="radio" name="interest" value="financial" required />
+              <span>Financial support</span>
+            </label>
+            <label>
+              <input type="radio" name="interest" value="in-kind" />
+              <span>In-kind contributions</span>
+            </label>
+            <label>
+              <input type="radio" name="interest" value="discussing" />
+              <span>Discussing options</span>
+            </label>
+          </fieldset>
+          <div class="field">
+            <label for="sponsor-message">Message <span class="optional">Optional</span></label>
+            <textarea id="sponsor-message" name="message" maxlength="800"></textarea>
+          </div>
+          <button class="button" type="submit">{sponsorPage.submitLabel}</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  document.querySelectorAll("[data-save-form]").forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const error = form.querySelector("[data-form-error]");
+      const confirmation = form.querySelector("[data-form-confirmation]");
+      const button = form.querySelector("button[type='submit']");
+      if (error instanceof HTMLElement) error.hidden = true;
+      if (confirmation instanceof HTMLElement) confirmation.hidden = true;
+      if (button instanceof HTMLButtonElement) button.disabled = true;
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { accept: "application/json" },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!(response.ok && data.saved === true)) {
+          if (error instanceof HTMLElement) {
+            error.textContent =
+              typeof data.message === "string" && data.message
+                ? data.message
+                : "The inquiry was not saved.";
+            error.hidden = false;
+          }
+          return;
+        }
+        form.reset();
+        if (confirmation instanceof HTMLElement) confirmation.hidden = false;
+      } catch {
+        if (error instanceof HTMLElement) {
+          error.textContent = "The inquiry was not saved.";
+          error.hidden = false;
+        }
+      } finally {
+        if (button instanceof HTMLButtonElement) button.disabled = false;
+      }
+    });
+  });
+</script>

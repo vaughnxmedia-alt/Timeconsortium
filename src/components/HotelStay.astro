@@ -1,0 +1,57 @@
+---
+import { hotelView } from "../lib/presentation";
+
+interface Props {
+  layout?: "card" | "split";
+}
+
+const { layout = "card" } = Astro.props;
+const stay = hotelView();
+const photoWidth = stay.photoWidth || undefined;
+const photoHeight = stay.photoHeight || undefined;
+---
+
+<section
+  id="stay"
+  class:list={["stay", `layout-${layout}`, { "has-photo": Boolean(stay.photo) }]}
+>
+  {
+    stay.photo && (
+      <figure class="frame">
+        <img
+          src={stay.photo}
+          alt={stay.photoAlt}
+          width={photoWidth}
+          height={photoHeight}
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
+    )
+  }
+  <div class="stay-copy">
+    <p class="eyebrow">Hotel partner</p>
+    <h2>Plan Your Stay</h2>
+    <hr class="rule" />
+    {stay.name && <p class="hotel-name">{stay.name}</p>}
+    {stay.groupRate && <p>Group rate: {stay.groupRate}</p>}
+    {stay.reservationDeadline && <p>Reservation deadline: {stay.reservationDeadline}</p>}
+    {stay.note && <p>{stay.note}</p>}
+    {stay.summary && <p>{stay.summary}</p>}
+    {
+      stay.bookingUrl && (
+        <a class="button" href={stay.bookingUrl}>
+          View Hotel Details
+        </a>
+      )
+    }
+    {
+      stay.showPlaceholderButton && (
+        <button class="button" type="button" aria-disabled="true">
+          View Hotel Details
+        </button>
+      )
+    }
+    {stay.preview && <p class="preview-note">{stay.previewNote}</p>}
+  </div>
+</section>

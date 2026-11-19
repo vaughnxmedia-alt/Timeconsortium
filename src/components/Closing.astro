@@ -1,0 +1,29 @@
+---
+import { event, ticketSignup, tickets } from "../config/site";
+import TicketCta from "./TicketCta.astro";
+import TicketSignup from "./TicketSignup.astro";
+
+const showSignup = tickets.phase === "updates";
+---
+
+<section class="close" id="tickets">
+  <div class="close-panel">
+    <p class="eyebrow">{event.name}</p>
+    {
+      showSignup ? (
+        <>
+          <h2>{ticketSignup.heading}</h2>
+          <p class="ticket-signup-copy">{ticketSignup.supporting}</p>
+          <TicketSignup />
+        </>
+      ) : (
+        <>
+          <h2>{event.closingHeading}</h2>
+          <p class="date-line">{event.dateLabel}</p>
+          <p class="place">{event.placeLine}</p>
+          <TicketCta />
+        </>
+      )
+    }
+  </div>
+</section>

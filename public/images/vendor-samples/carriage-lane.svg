@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="Carriage Lane Concierge">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="120" cy="78" r="16"/>
+    <path d="M92 138c8-28 20-40 28-40s20 12 28 40"/>
+    <path d="M100 118h40"/>
+    <path d="M84 148h72"/>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 192" role="img" aria-label="Sable and Salt">
+  <rect width="240" height="192" fill="#f8f2e9"/>
+  <g fill="none" stroke="#270716" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="120" cy="128" rx="38" ry="8"/>
+    <path d="M82 128v-10c0-4 4-8 10-10l8-18h40l8 18c6 2 10 6 10 10v10"/>
+    <path d="M100 90c0-22 9-36 20-36s20 14 20 36"/>
+    <path d="M112 68h16"/>
+  </g>
+</svg>

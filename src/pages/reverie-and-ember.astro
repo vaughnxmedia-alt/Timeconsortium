@@ -1,0 +1,147 @@
+---
+import Base from "../layouts/Base.astro";
+import Closing from "../components/Closing.astro";
+import HotelStay from "../components/HotelStay.astro";
+import TicketCta from "../components/TicketCta.astro";
+import { eveningPage, event, images, pages, site } from "../config/site";
+
+const concepts = event.concepts.filter((item) => item.image.trim());
+const recapImages = event.recap.images.filter((item) => item.src.trim());
+---
+
+<Base
+  title={pages.event.title}
+  description={pages.event.description}
+  path={event.path}
+  eventSchema
+>
+  <div class="stack">
+    <section class="mast">
+      <figure class="frame">
+        <img
+          src={images.arrival.src}
+          alt={images.arrival.alt}
+          width={images.arrival.width}
+          height={images.arrival.height}
+          fetchpriority="high"
+          decoding="async"
+        />
+      </figure>
+      <div class="mast-copy">
+        <h1>
+          <img
+            class="wordmark"
+            src={site.wordmark.src}
+            alt=""
+            width={site.wordmark.width}
+            height={site.wordmark.height}
+          />
+          <span class="visually-hidden">{event.name}</span>
+        </h1>
+        <p class="tagline">{event.tagline}</p>
+        <p class="kicker">{event.kicker}</p>
+        <hr class="rule" />
+        <p class="date-line">{event.dateLabel}</p>
+        <p class="place">{event.placeLine}</p>
+        <TicketCta note={false} />
+      </div>
+    </section>
+
+    <section class="lede">
+      <p>{event.lede}</p>
+      <p>{event.audience}</p>
+    </section>
+
+    <section class="editorial">
+      <div class="editorial-media">
+        <figure class="frame">
+          <img
+            src={images.tablescape.src}
+            alt={images.tablescape.alt}
+            width={images.tablescape.width}
+            height={images.tablescape.height}
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+        {
+          images.runway.src && (
+            <figure class="frame">
+              <img
+                src={images.runway.src}
+                alt={images.runway.alt}
+                width={images.runway.width}
+                height={images.runway.height}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          )
+        }
+      </div>
+      <div>
+        <p class="eyebrow">{eveningPage.navLabel}</p>
+        <h2>{eveningPage.homeTeaserTitle}</h2>
+        <hr class="rule rule-ink" />
+        <p>{eveningPage.homeTeaser}</p>
+        <p>
+          <a class="text-link" href={eveningPage.path}>{eveningPage.homeTeaserLink}</a>
+        </p>
+      </div>
+    </section>
+
+    {
+      concepts.length > 0 && (
+        <section class="concepts" aria-labelledby="concepts-title">
+          <h2 id="concepts-title">Design chapters</h2>
+          <ul>
+            {concepts.map((item) => (
+              <li>
+                <figure class="frame">
+                  <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
+                </figure>
+                <h3>{item.name}</h3>
+                {item.summary && <p>{item.summary}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <HotelStay layout="split" />
+
+    <section class="recap" id="recap">
+      <p class="eyebrow">After the evening</p>
+      <h2>Recap</h2>
+      {
+        event.recap.ready && event.recap.intro ? (
+          <p>{event.recap.intro}</p>
+        ) : (
+          <p>{event.recapPending}</p>
+        )
+      }
+      {
+        event.recap.ready && recapImages.length > 0 && (
+          <ul class="recap-grid">
+            {recapImages.map((image) => (
+              <li>
+                <figure class="frame">
+                  <img
+                    src={image.src}
+                    alt={image.alt}
+                    width={image.width}
+                    height={image.height}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+  <Closing />
+</Base>

@@ -1,0 +1,50 @@
+---
+import Base from "../layouts/Base.astro";
+import { aboutPage, featuredExperience } from "../config/site";
+---
+
+<Base title={aboutPage.title} description={aboutPage.description} path={aboutPage.path}>
+  <div class="about-page">
+    <section class="about-intro">
+      <figure class="frame">
+        <img
+          src={aboutPage.opening.src}
+          alt={aboutPage.opening.alt}
+          width={aboutPage.opening.width}
+          height={aboutPage.opening.height}
+          style={`object-position: ${aboutPage.opening.position}`}
+          fetchpriority="high"
+          decoding="async"
+        />
+      </figure>
+      <div class="about-copy">
+        <h1>{aboutPage.headline}</h1>
+        {aboutPage.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+      </div>
+    </section>
+
+    <section class="featured" aria-labelledby="featured-title">
+      <div class="featured-spread">
+        <figure class="frame">
+          <img
+            src={featuredExperience.image.src}
+            alt={featuredExperience.image.alt}
+            width={featuredExperience.image.width}
+            height={featuredExperience.image.height}
+            style={`object-position: ${featuredExperience.image.position}`}
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+        <div class="featured-copy">
+          <p class="eyebrow">{featuredExperience.eyebrow}</p>
+          <h2 id="featured-title">{featuredExperience.name}</h2>
+          <p class="tagline">{featuredExperience.tagline}</p>
+          <p>{featuredExperience.summary}</p>
+          <p class="date-line">{featuredExperience.meta}</p>
+          <a class="button" href={featuredExperience.href}>{featuredExperience.button}</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</Base>

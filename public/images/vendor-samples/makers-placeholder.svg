@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 384" role="img" aria-label="The Makers. A place for your brand.">
+  <rect width="480" height="384" fill="#f7f1e8"/>
+  <rect x="22" y="22" width="436" height="340" fill="none" stroke="#c4a15a" stroke-opacity="0.35" stroke-width="1"/>
+  <text
+    x="240"
+    y="138"
+    text-anchor="middle"
+    font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+    font-size="13"
+    font-weight="600"
+    letter-spacing="8.5"
+    fill="#270716"
+  >THE MAKERS</text>
+  <line x1="198" y1="158" x2="282" y2="158" stroke="#c4a15a" stroke-width="1"/>
+  <text
+    x="240"
+    y="214"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="42"
+    fill="#270716"
+  >A place for</text>
+  <text
+    x="240"
+    y="264"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="42"
+    fill="#270716"
+  >your brand.</text>
+</svg>

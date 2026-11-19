@@ -1,0 +1,28 @@
+---
+import { aboutPage, event, site, sponsorPage, vendor } from "../config/site";
+
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+---
+
+<footer class="footer">
+  <img
+    class="footer-mark"
+    src={site.monogram.src}
+    alt=""
+    width={site.monogram.width}
+    height={site.monogram.height}
+  />
+  <p class="credit">
+    {event.name} is presented by {site.name} in partnership with {site.partner}.
+  </p>
+  <nav class="footer-nav" aria-label="Footer">
+    <a href={aboutPage.path} aria-current={path === aboutPage.path ? "page" : undefined}>{aboutPage.label}</a>
+    <a href={event.path}>{event.name}</a>
+    <a href="/vendor-hub" aria-current={path === "/vendor-hub" || path.startsWith("/vendor-hub/") ? "page" : undefined}>
+      {vendor.navLabel}
+    </a>
+    <a href={sponsorPage.path} aria-current={path === sponsorPage.path ? "page" : undefined}>
+      {sponsorPage.heading}
+    </a>
+  </nav>
+</footer>

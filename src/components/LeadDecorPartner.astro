@@ -1,0 +1,89 @@
+---
+import { leadDecorPartner } from "../config/site";
+
+interface Props {
+  layout?: "home" | "makers";
+}
+
+const { layout = "home" } = Astro.props;
+const partner = leadDecorPartner;
+const hasLogo = Boolean(partner.logo.src);
+const hasPhoto = Boolean(partner.photo.src);
+---
+
+{
+  layout === "home" ? (
+    <section id="lead-decor" class="lead-decor lead-decor-feature" aria-labelledby="lead-decor-title">
+      {
+        hasPhoto && (
+          <figure class="lead-decor-media">
+            <img
+              src={partner.photo.src}
+              alt={partner.photo.alt}
+              width={partner.photo.width || undefined}
+              height={partner.photo.height || undefined}
+              loading="lazy"
+              decoding="async"
+            />
+            {partner.photo.caption && <figcaption>{partner.photo.caption}</figcaption>}
+          </figure>
+        )
+      }
+      <div class="lead-decor-copy">
+        <p class="eyebrow lead-decor-eyebrow">{partner.eyebrow}</p>
+        {
+          hasLogo ? (
+            <img
+              class="lead-decor-logo"
+              src={partner.logo.src}
+              alt={partner.logo.alt || partner.name}
+              width={partner.logo.width || undefined}
+              height={partner.logo.height || undefined}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <p class="lead-decor-name">{partner.name}</p>
+          )
+        }
+        <h2 id="lead-decor-title">{partner.credit}</h2>
+        <hr class="rule lead-decor-rule" />
+        <p class="lead-decor-summary">{partner.summary}</p>
+        <a class="button button-gold" href={partner.url} target="_blank" rel="noopener noreferrer">
+          {partner.buttonLabel}
+        </a>
+      </div>
+    </section>
+  ) : (
+    <article class="makers-feature" aria-labelledby="makers-feature-title">
+      <div class="makers-feature-mark">
+        {
+          hasLogo ? (
+            <img
+              class="makers-feature-logo"
+              src={partner.logo.src}
+              alt={partner.logo.alt || partner.name}
+              width={partner.logo.width || undefined}
+              height={partner.logo.height || undefined}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <p class="makers-feature-name">{partner.name}</p>
+          )
+        }
+      </div>
+      <div class="makers-feature-copy">
+        <p class="eyebrow">{partner.role}</p>
+        <h2 id="makers-feature-title">{partner.credit}</h2>
+        <p class="vendor-specialty">{partner.specialty}</p>
+        <p>{partner.summary}</p>
+        <p>
+          <a class="button" href={partner.url} target="_blank" rel="noopener noreferrer">
+            {partner.buttonLabel}
+          </a>
+        </p>
+      </div>
+    </article>
+  )
+}

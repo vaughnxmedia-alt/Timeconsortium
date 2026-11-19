@@ -1,0 +1,70 @@
+---
+import Base from "../layouts/Base.astro";
+import Closing from "../components/Closing.astro";
+import TicketCta from "../components/TicketCta.astro";
+import { eveningPage, event, images, pages } from "../config/site";
+---
+
+<Base
+  title={pages.evening.title}
+  description={pages.evening.description}
+  path={eveningPage.path}
+>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">{event.name}</p>
+      <h1>{eveningPage.title}</h1>
+      <p class="tagline">{eveningPage.intro}</p>
+      <p class="date-line">{event.dateLabel}</p>
+      <p class="place">{event.placeLine}</p>
+    </div>
+  </header>
+
+  <div class="page-body">
+    <div class="page-body-inner page-body-wide">
+      <section id="itinerary" class="itinerary" aria-labelledby="itinerary-title">
+        <div class="itinerary-intro">
+          <h2 id="itinerary-title">Itinerary</h2>
+          <p class="itinerary-note">{eveningPage.note}</p>
+        </div>
+
+        <ol class="itinerary-list">
+          {
+            eveningPage.itinerary.map((item) => (
+              <li class="itinerary-item">
+                <p class="itinerary-time">{item.time}</p>
+                <div class="itinerary-copy">
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+      </section>
+
+      {
+        images.arrival.src && (
+          <figure class="itinerary-figure">
+            <img
+              src={images.arrival.src}
+              alt={images.arrival.alt}
+              width={images.arrival.width}
+              height={images.arrival.height}
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        )
+      }
+
+      <div class="itinerary-cta">
+        <TicketCta />
+        <p>
+          <a class="text-link" href={event.path}>Details for invitations and press</a>
+        </p>
+      </div>
+    </div>
+  </div>
+  <Closing />
+</Base>

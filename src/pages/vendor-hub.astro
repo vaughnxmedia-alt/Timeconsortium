@@ -1,0 +1,181 @@
+---
+export const prerender = false;
+
+import Base from "../layouts/Base.astro";
+import LeadDecorPartner from "../components/LeadDecorPartner.astro";
+import { pages, sponsorPage, vendor } from "../config/site";
+import { specialtyGroups } from "../lib/vendor/specialties";
+import { listDirectoryProfiles } from "../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const directory = await listDirectoryProfiles();
+const filterGroups = specialtyGroups.filter((group) => group.id !== "other");
+const heading = directory.preview ? vendor.previewTitle : vendor.selectedTitle;
+---
+
+<Base title={pages.vendor.title} description={pages.vendor.description} path="/vendor-hub">
+  <header class="page-mast vendor-hub-mast">
+    <div class="page-mast-inner">
+      <h1>{vendor.title}</h1>
+      <p class="tagline">{vendor.intro}</p>
+      <div class="hub-actions">
+        <a class="button button-gold" href={vendor.requestPath}>{vendor.requestLabel}</a>
+      </div>
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner page-body-wide">
+      <div class="vendor-hub-lede">
+        {vendor.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+        <p class="vendor-deadline">Vendor participation deadline: {vendor.deadline}</p>
+      </div>
+
+      <LeadDecorPartner layout="makers" />
+
+      <section id="selected-vendors" class="vendor-directory" aria-labelledby="selected-title">
+        <div class="directory-heading">
+          <h2 id="selected-title">{heading}</h2>
+          {directory.preview && <p class="directory-note">{vendor.previewNote}</p>}
+          {
+            !directory.preview && directory.profiles.length === 0 && (
+              <p>{vendor.selectedEmpty}</p>
+            )
+          }
+        </div>
+
+        {
+          directory.profiles.length > 0 && (
+            <>
+              <div class="directory-filters">
+                <label class="filter-label" for="specialty-filter">Specialty</label>
+                <select id="specialty-filter" class="specialty-filter" data-directory-filter>
+                  <option value="all">All specialties</option>
+                  {filterGroups.map((group) => (
+                    <option value={group.id}>{group.label}</option>
+                  ))}
+                </select>
+                <div class="filter-chips" role="group" aria-label="Specialty filters">
+                  <button type="button" class="filter-chip is-active" data-filter="all">
+                    All specialties
+                  </button>
+                  {filterGroups.map((group) => (
+                    <button type="button" class="filter-chip" data-filter={group.id}>
+                      {group.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <ul class="vendor-grid" data-directory-grid>
+                {directory.profiles.map((profile) => (
+                  <li
+                    class="vendor-card"
+                    data-specialty={profile.specialtyGroup}
+                  >
+                    <div class="vendor-logo-frame">
+                      {
+                        profile.sample || !profile.logoUrl ? (
+                          profile.sample ? (
+                            <div class="vendor-logo-mark" aria-hidden="true">
+                              <p class="vendor-logo-mark-eyebrow">{vendor.placeholderEyebrow}</p>
+                              <span class="vendor-logo-mark-rule"></span>
+                              <p class="vendor-logo-mark-title">
+                                <span>{vendor.placeholderLine1}</span>
+                                <span>{vendor.placeholderLine2}</span>
+                              </p>
+                            </div>
+                          ) : (
+                            <p class="vendor-logo-fallback">{profile.businessName}</p>
+                          )
+                        ) : (
+                          <img
+                            class="vendor-logo"
+                            src={profile.logoUrl}
+                            alt=""
+                            width="240"
+                            height="160"
+                            loading="lazy"
+                            decoding="async"
+                            data-fallback={profile.businessName}
+                            onerror="const name=this.getAttribute('data-fallback')||''; const mark=document.createElement('p'); mark.className='vendor-logo-fallback'; mark.textContent=name; this.replaceWith(mark);"
+                          />
+                        )
+                      }
+                    </div>
+                    <div class="vendor-card-copy">
+                      <h3>{profile.businessName}</h3>
+                      <p class="vendor-specialty">{profile.specialtyLabel}</p>
+                      <p>{profile.summary}</p>
+                      {
+                        profile.portfolio && (
+                          <p>
+                            <a class="text-link" href={profile.portfolio}>
+                              View portfolio
+                            </a>
+                          </p>
+                        )
+                      }
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p class="directory-empty" data-directory-empty hidden>
+                No makers in this specialty yet.
+              </p>
+            </>
+          )
+        }
+      </section>
+
+      <p class="sponsor-prompt">
+        <a class="sponsor-link" href={sponsorPage.path}>{vendor.sponsorLink}</a>
+      </p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  const filter = document.querySelector("[data-directory-filter]");
+  const chips = document.querySelectorAll(".filter-chip");
+  const cards = document.querySelectorAll(".vendor-card");
+  const empty = document.querySelector("[data-directory-empty]");
+  const directory = document.querySelector("#selected-vendors");
+
+  const applyFilter = (value, { scroll = true } = {}) => {
+    let firstMatch = null;
+    let visible = 0;
+    cards.forEach((card) => {
+      if (!(card instanceof HTMLElement)) return;
+      const match = value === "all" || card.dataset.specialty === value;
+      card.hidden = !match;
+      if (match) {
+        visible += 1;
+        if (!firstMatch) firstMatch = card;
+      }
+    });
+    chips.forEach((chip) => {
+      if (!(chip instanceof HTMLElement)) return;
+      chip.classList.toggle("is-active", chip.dataset.filter === value);
+    });
+    if (filter instanceof HTMLSelectElement) filter.value = value;
+    if (empty instanceof HTMLElement) empty.hidden = visible > 0;
+
+    if (!scroll) return;
+    const target = value === "all" ? directory : firstMatch;
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  filter?.addEventListener("change", () => {
+    if (filter instanceof HTMLSelectElement) applyFilter(filter.value);
+  });
+
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (!(chip instanceof HTMLElement)) return;
+      applyFilter(chip.dataset.filter || "all");
+    });
+  });
+</script>

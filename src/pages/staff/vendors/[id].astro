@@ -1,0 +1,247 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import { vendor } from "../../../config/site";
+import {
+  emailConfigured,
+  getVendor,
+  isStaff,
+  staffConfigured,
+  STATUS_LABEL,
+  takeError,
+  takeLink,
+} from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const configured = staffConfigured();
+const allowed = configured && (await isStaff(Astro.cookies));
+const id = Astro.params.id ?? "";
+const record = allowed ? await getVendor(id) : null;
+const link = allowed ? takeLink(Astro.cookies) : "";
+const error = allowed ? takeError(Astro.cookies) : "";
+if (allowed && !record) Astro.response.status = 404;
+---
+
+<Base
+  title="Review request | Timeless Consortium"
+  description="Private vendor request."
+  path={`/staff/vendors/${id}`}
+  robots="noindex, nofollow"
+>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">Staff</p>
+      <h1>{record ? record.businessName : "Review request"}</h1>
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner">
+      {
+        !allowed && (
+          <p>
+            <a class="text-link" href="/staff/vendors">Sign in to the review queue</a>
+          </p>
+        )
+      }
+      {
+        allowed && !record && <p>That request was not found.</p>
+      }
+      {
+        record && (
+          <>
+            <p>
+              <a class="text-link" href="/staff/vendors">Back to the queue</a>
+            </p>
+            {error && <p class="form-error" role="alert">{error}</p>}
+            {link && (
+              <p class="preview-note">
+                Private access link: <a href={link}>{link}</a>
+                {!emailConfigured() && " Email delivery is not configured, so this link was not emailed."}
+              </p>
+            )}
+            <p>Status: {STATUS_LABEL[record.status]}</p>
+            <p>{record.contactName} · {record.email}</p>
+            <p>Specialty: {record.specialty}</p>
+            <p>
+              Portfolio: <a href={record.portfolio}>{record.portfolio}</a>
+            </p>
+            <p>{record.contribution}</p>
+            <p>Receipt email: {record.receiptSent ? "Sent." : "Not sent."}</p>
+            <p>Acceptance email: {record.acceptanceSent ? "Sent." : "Not sent."}</p>
+
+            <section>
+              <h2>Internal notes</h2>
+              <form class="form" method="post" action="/api/staff-review">
+                <input type="hidden" name="id" value={record.id} />
+                <input type="hidden" name="intent" value="notes" />
+                <div class="field">
+                  <label for="staff-notes">Notes</label>
+                  <textarea id="staff-notes" name="staffNotes" maxlength="4000">{record.staffNotes}</textarea>
+                </div>
+                <button class="button" type="submit">Save notes</button>
+              </form>
+            </section>
+
+            {
+              record.status !== "declined" && record.status !== "confirmed" && (
+                <section>
+                  <h2>Decision</h2>
+                  <form class="form" method="post" action="/api/staff-review">
+                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="intent" value="accept" />
+                    <div class="field">
+                      <label for="included">What’s included</label>
+                      <textarea id="included" name="included" maxlength="1200" required>{record.included}</textarea>
+                    </div>
+                    <label class="check">
+                      <input type="checkbox" name="feeRequired" value="yes" checked={record.feeRequired} />
+                      <span>A participation fee applies</span>
+                    </label>
+                    <div class="field">
+                      <label for="fee-label">Fee</label>
+                      <input id="fee-label" name="feeLabel" type="text" value={record.feeLabel} maxlength="120" />
+                    </div>
+                    <div class="field">
+                      <label for="deadline">Confirmation deadline</label>
+                      <input
+                        id="deadline"
+                        name="confirmationDeadline"
+                        type="text"
+                        value={record.confirmationDeadline || vendor.deadline}
+                        maxlength="120"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="checkout">Hosted checkout URL</label>
+                      <input id="checkout" name="checkoutUrl" type="url" value={record.checkoutUrl} placeholder="https://" maxlength="400" />
+                    </div>
+                    <button class="button" type="submit">Accept and create access link</button>
+                  </form>
+                  <form method="post" action="/api/staff-review">
+                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="intent" value="review" />
+                    <button class="text-link" type="submit">Mark under review</button>
+                  </form>
+                  <form method="post" action="/api/staff-review">
+                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="intent" value="decline" />
+                    <button class="text-link" type="submit">Decline request</button>
+                  </form>
+                </section>
+              )
+            }
+
+            {
+              (record.status === "accepted_pending" || record.status === "confirmed") && (
+                <section>
+                  <h2>Checklist</h2>
+                  <p>Included: {record.included}</p>
+                  <p>
+                    {record.feeRequired ? `Fee: ${record.feeLabel}` : "No fee is required."}
+                    {record.confirmationDeadline ? ` Deadline: ${record.confirmationDeadline}` : ""}
+                  </p>
+                  <p>Agreement: {record.agreementAcceptedAt ? "Accepted." : "Not accepted yet."}</p>
+                  <p>
+                    Payment: {
+                      !record.feeRequired
+                        ? "Not required."
+                        : record.paymentCompletedAt
+                          ? "Recorded."
+                          : record.checkoutUrl
+                            ? "Waiting for the hosted checkout to be recorded."
+                            : "Hosted checkout is not configured, so this vendor cannot be confirmed while a fee applies."
+                    }
+                  </p>
+                  {
+                    record.feeRequired && record.checkoutUrl && !record.paymentCompletedAt && (
+                      <form method="post" action="/api/staff-review">
+                        <input type="hidden" name="id" value={record.id} />
+                        <input type="hidden" name="intent" value="payment" />
+                        <button class="button" type="submit">Record payment</button>
+                      </form>
+                    )
+                  }
+                  <form method="post" action="/api/staff-review">
+                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="intent" value="link" />
+                    <button class="text-link" type="submit">Issue a fresh sign-in link</button>
+                  </form>
+                </section>
+              )
+            }
+
+            {
+              record.status === "confirmed" && (
+                <section>
+                  <h2>Public directory</h2>
+                  <p>
+                    Review the approved public details before publishing. Leave the logo blank
+                    until an approved image is ready; the business name will fill the logo area.
+                  </p>
+                  <form class="form" method="post" action="/api/staff-review">
+                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="intent" value="publish" />
+                    <div class="field">
+                      <label for="public-name">Public business name</label>
+                      <input
+                        id="public-name"
+                        name="publicName"
+                        type="text"
+                        value={record.publicName || record.businessName}
+                        maxlength="160"
+                        required
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="public-specialty">Public specialty</label>
+                      <input
+                        id="public-specialty"
+                        name="publicSpecialty"
+                        type="text"
+                        value={record.publicSpecialty || record.specialty}
+                        maxlength="160"
+                        required
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="public-summary">Public description</label>
+                      <textarea id="public-summary" name="publicSummary" maxlength="280" required>{record.publicSummary || record.description || record.contribution}</textarea>
+                    </div>
+                    <div class="field">
+                      <label for="public-portfolio">Public portfolio URL</label>
+                      <input
+                        id="public-portfolio"
+                        name="publicPortfolio"
+                        type="url"
+                        value={record.publicPortfolio || record.portfolio}
+                        maxlength="400"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="public-logo">Public logo URL</label>
+                      <input
+                        id="public-logo"
+                        name="publicLogoUrl"
+                        type="url"
+                        value={record.publicLogoUrl || record.logoUrl}
+                        placeholder="https://"
+                        maxlength="400"
+                      />
+                    </div>
+                    <label class="check">
+                      <input type="checkbox" name="published" value="yes" checked={record.published} />
+                      <span>Publish to The Makers directory</span>
+                    </label>
+                    <button class="button" type="submit">Save directory listing</button>
+                  </form>
+                </section>
+              )
+            }
+          </>
+        )
+      }
+    </div>
+  </div>
+</Base>

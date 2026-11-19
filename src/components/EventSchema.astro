@@ -1,0 +1,39 @@
+---
+import { event, pages, site } from "../config/site";
+
+const image = new URL(site.shareImage, site.url).href;
+const data = {
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: event.name,
+  description: pages.event.description,
+  startDate: event.dateISO,
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  eventStatus: "https://schema.org/EventScheduled",
+  url: new URL(event.path, site.url).href,
+  image: [image],
+  location: {
+    "@type": "Place",
+    name: event.venue,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: event.locality,
+      addressRegion: event.region,
+      addressCountry: "US",
+    },
+  },
+  organizer: [
+    {
+      "@type": "Organization",
+      name: site.name,
+      url: site.url,
+    },
+    {
+      "@type": "Organization",
+      name: site.partner,
+    },
+  ],
+};
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(data)} />
