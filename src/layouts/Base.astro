@@ -27,7 +27,7 @@ const image = new URL(site.shareImage, site.url).href;
     <meta name="description" content={description} />
     {robots && <meta name="robots" content={robots} />}
     <link rel="canonical" href={canonical} />
-    <meta name="theme-color" content="#270716" />
+    <meta name="theme-color" content="#151313" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
@@ -73,6 +73,9 @@ const image = new URL(site.shareImage, site.url).href;
           if (!desktop.matches && navToggle instanceof HTMLInputElement) navToggle.focus();
         }
       });
+
+      // iOS Safari only applies :active styles when a touch listener is present.
+      document.addEventListener("touchstart", () => {}, { passive: true });
 
       desktop.addEventListener("change", () => {
         if (desktop.matches) closeNav();

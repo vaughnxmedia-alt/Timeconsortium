@@ -5,6 +5,7 @@
 @import "@fontsource/source-sans-3/600.css";
 
 :root {
+  --matte-black: #151313;
   --aubergine: #270716;
   --aubergine-soft: #3e1a31;
   --oxblood: #641f2c;
@@ -114,7 +115,7 @@ a {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--aubergine);
+  background: var(--matte-black);
   color: var(--ivory-text);
   border-bottom: 1px solid rgba(196, 161, 90, 0.45);
 }
@@ -187,7 +188,7 @@ a {
 .nav-check:focus-visible + .nav-toggle {
   outline: 2px solid var(--ivory-text);
   outline-offset: 3px;
-  box-shadow: 0 0 0 5px var(--aubergine);
+  box-shadow: 0 0 0 5px var(--matte-black);
 }
 
 .nav {
@@ -217,6 +218,16 @@ a {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 979px) {
+  .nav a:not(.button):hover,
+  .nav a:not(.button):active,
+  .nav a:not(.button):focus-visible,
+  .nav a:not(.button)[aria-current="page"] {
+    color: var(--gold);
+  }
 }
 
 .nav .button {

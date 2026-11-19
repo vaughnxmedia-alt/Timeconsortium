@@ -8,7 +8,8 @@ const stayHref =
 const ticket = ticketView(path);
 const vendorCurrent =
   path === "/vendor-hub" || path.startsWith("/vendor-hub/") ? "page" : undefined;
-const aboutCurrent = path === "/about" ? "page" : undefined;
+const aboutCurrent =
+  path === aboutPage.path || path.startsWith("/discover/") ? "page" : undefined;
 const eveningCurrent = path === eveningPage.path ? "page" : undefined;
 ---
 
