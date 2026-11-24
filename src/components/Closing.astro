@@ -3,18 +3,31 @@ import { event, ticketSignup, tickets } from "../config/site";
 import TicketCta from "./TicketCta.astro";
 import TicketSignup from "./TicketSignup.astro";
 
+interface Props {
+  heading?: string;
+  supporting?: string;
+  submitLabel?: string;
+  showEyebrow?: boolean;
+}
+
+const {
+  heading = ticketSignup.heading,
+  supporting = ticketSignup.supporting,
+  submitLabel = ticketSignup.submitLabel,
+  showEyebrow = true,
+} = Astro.props;
 const showSignup = tickets.phase === "updates";
 ---
 
 <section class="close" id="tickets">
   <div class="close-panel">
-    <p class="eyebrow">{event.name}</p>
+    {showEyebrow && <p class="eyebrow">{event.name}</p>}
     {
       showSignup ? (
         <>
-          <h2>{ticketSignup.heading}</h2>
-          <p class="ticket-signup-copy">{ticketSignup.supporting}</p>
-          <TicketSignup />
+          <h2>{heading}</h2>
+          <p class="ticket-signup-copy">{supporting}</p>
+          <TicketSignup submitLabel={submitLabel} />
         </>
       ) : (
         <>

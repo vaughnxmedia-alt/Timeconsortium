@@ -1,5 +1,11 @@
 ---
 import { ticketSignup } from "../config/site";
+
+interface Props {
+  submitLabel?: string;
+}
+
+const { submitLabel = ticketSignup.submitLabel } = Astro.props;
 ---
 
 <form class="ticket-signup form" data-ticket-signup method="post" action="/api/ticket-signup" novalidate>
@@ -19,7 +25,7 @@ import { ticketSignup } from "../config/site";
         required
       />
     </div>
-    <button class="button" type="submit" data-ticket-submit>{ticketSignup.submitLabel}</button>
+    <button class="button" type="submit" data-ticket-submit>{submitLabel}</button>
   </div>
 </form>
 
@@ -32,6 +38,7 @@ import { ticketSignup } from "../config/site";
       const confirmation = form.querySelector("[data-form-confirmation]");
       const fields = form.querySelector("[data-ticket-fields]");
       const button = form.querySelector("[data-ticket-submit]");
+      const restingLabel = button instanceof HTMLButtonElement ? button.textContent : "";
       if (error instanceof HTMLElement) {
         error.hidden = true;
         error.textContent = "";
@@ -39,7 +46,7 @@ import { ticketSignup } from "../config/site";
       if (confirmation instanceof HTMLElement) confirmation.hidden = true;
       if (button instanceof HTMLButtonElement) {
         button.disabled = true;
-        button.textContent = "Joining…";
+        button.textContent = "Sending…";
       }
       try {
         const response = await fetch(form.action, {
@@ -70,7 +77,7 @@ import { ticketSignup } from "../config/site";
       } finally {
         if (button instanceof HTMLButtonElement) {
           button.disabled = false;
-          button.textContent = "Join the List";
+          button.textContent = restingLabel;
         }
       }
     });
