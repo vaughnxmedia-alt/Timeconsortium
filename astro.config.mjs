@@ -3,7 +3,7 @@ import vercel from "@astrojs/vercel";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://www.thomasconsortium.com",
+  site: "https://www.timelessconsortium.com",
   output: "static",
   adapter: vercel(),
   security: {
@@ -16,7 +16,7 @@ export default defineConfig({
   integrations: [
     sitemap({
       filter: (page) => !page.includes("/staff"),
-      customPages: ["https://www.thomasconsortium.com/vendor-hub"],
+      customPages: ["https://www.timelessconsortium.com/vendor-hub"],
     }),
   ],
   devToolbar: { enabled: false },

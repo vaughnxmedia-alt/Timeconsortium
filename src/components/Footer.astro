@@ -24,6 +24,51 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
     <a href={sponsorPage.path} aria-current={path === sponsorPage.path ? "page" : undefined}>
       {sponsorPage.heading}
     </a>
-    <a href="/staff" aria-current={path === "/staff" || path.startsWith("/staff/") ? "page" : undefined}>Teams</a>
+    <button class="footer-teams" type="button" data-teams-open>Teams</button>
   </nav>
 </footer>
+<dialog id="teams-login" class="teams-login">
+  <form class="form" method="post" action="/api/staff-login">
+    <input type="hidden" name="from" value={path} />
+    <h2>Teams</h2>
+    <p>Sign in with your team email and password. There is no public signup.</p>
+    <p class="form-error" data-teams-error hidden></p>
+    <div class="field">
+      <label for="teams-email">Email</label>
+      <input id="teams-email" name="email" type="email" autocomplete="username" maxlength="200" required />
+    </div>
+    <div class="field">
+      <label for="teams-password">Password</label>
+      <input id="teams-password" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <div class="teams-login-actions">
+      <button class="button" type="submit">Sign in</button>
+      <button class="text-link" type="button" data-teams-close>Close</button>
+    </div>
+  </form>
+</dialog>
+<script>
+  const dialog = document.querySelector("#teams-login");
+  const openTeams = () => {
+    if (dialog instanceof HTMLDialogElement) dialog.showModal();
+  };
+  document.querySelector("[data-teams-open]")?.addEventListener("click", openTeams);
+  document.querySelector("[data-teams-close]")?.addEventListener("click", () => {
+    if (dialog instanceof HTMLDialogElement) dialog.close();
+  });
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("teams") === "1") {
+    const message = params.get("error");
+    const slot = document.querySelector("[data-teams-error]");
+    if (message && slot instanceof HTMLElement) {
+      slot.hidden = false;
+      slot.textContent = message;
+    }
+    const email = params.get("email") ?? "";
+    const emailInput = document.querySelector("#teams-email");
+    if (emailInput instanceof HTMLInputElement && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      emailInput.value = email;
+    }
+    openTeams();
+  }
+</script>

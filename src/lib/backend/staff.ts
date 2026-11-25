@@ -14,6 +14,9 @@ type LinkPurpose = "invite" | "verify" | "login";
 type Member = {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   role: StaffRole;
   status: StaffStatus;
   passwordHash: string;
@@ -137,6 +140,9 @@ function memberFromRow(row: Record<string, unknown>): Member {
   return {
     id: text(row.id),
     email: text(row.email).toLowerCase(),
+    firstName: text(row.first_name),
+    lastName: text(row.last_name),
+    phone: text(row.phone),
     role,
     status: status === "active" || status === "revoked" ? status : "invited",
     passwordHash: text(row.password_hash),
@@ -175,7 +181,13 @@ async function readFileDesk(): Promise<Desk> {
     const parsed = JSON.parse(await readFile(deskPath, "utf8")) as Desk;
     return {
       members: Array.isArray(parsed.members)
-        ? parsed.members.map((member) => ({ ...member, passwordHash: member.passwordHash || "" }))
+        ? parsed.members.map((member) => ({
+            ...member,
+            firstName: member.firstName || "",
+            lastName: member.lastName || "",
+            phone: member.phone || "",
+            passwordHash: member.passwordHash || "",
+          }))
         : [],
       links: Array.isArray(parsed.links) ? parsed.links : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
@@ -206,8 +218,8 @@ async function readSupabaseDesk(client: SupabaseClient): Promise<Desk> {
   };
 }
 
-function memberRow(member: Member) {
-  return {
+function memberRow(member: Member, names: boolean) {
+  const row: Record<string, unknown> = {
     id: member.id,
     email: member.email,
     role: member.role,
@@ -217,6 +229,12 @@ function memberRow(member: Member) {
     activated_at: member.activatedAt || null,
     revoked_at: member.revokedAt || null,
   };
+  if (names) {
+    row.first_name = member.firstName || "";
+    row.last_name = member.lastName || "";
+    row.phone = member.phone || "";
+  }
+  return row;
 }
 
 function linkRow(link: LinkRecord) {
@@ -258,7 +276,8 @@ async function writeSupabaseDesk(client: SupabaseClient, desk: Desk) {
     const { error: deleteError } = await client.from(table).delete().in(key, remove);
     if (deleteError) throw new Error(deleteError.message);
   };
-  await write("staff_members", "id", desk.members.map(memberRow));
+  const { error: namesProbe } = await client.from("staff_members").select("first_name").limit(1);
+  await write("staff_members", "id", desk.members.map((member) => memberRow(member, !namesProbe)));
   await write("staff_links", "id", desk.links.map(linkRow));
   await write("staff_sessions", "id", desk.sessions.map(sessionRow));
 }
@@ -622,6 +641,11 @@ export async function setStaffPassword(cookies: CookieJar, password: string, con
   });
 }
 
+function phoneOk(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
 export async function listStaff() {
   const desk = await readDesk();
   return desk.members
@@ -630,55 +654,69 @@ export async function listStaff() {
     .map((member) => ({
       id: member.id,
       email: member.email,
+      firstName: member.firstName || "",
+      lastName: member.lastName || "",
+      phone: member.phone || "",
       role: member.role,
       status: member.status,
       createdAt: member.createdAt,
     }));
 }
 
-export async function inviteStaff(actor: StaffViewer, email: string, origin: string) {
-  if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can invite the team." };
-  const address = email.trim().toLowerCase();
+export async function inviteStaff(
+  actor: StaffViewer,
+  input: { firstName: string; lastName: string; email: string; phone: string; password: string },
+) {
+  if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can add a team member." };
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const address = input.email.trim().toLowerCase();
+  const phone = input.phone.trim();
+  if (!firstName || !lastName) return { ok: false as const, message: "Add the first and last name." };
   if (!emailOk(address)) return { ok: false as const, message: "Enter a valid email address." };
-  return locked(async () => {
+  if (!phoneOk(phone)) return { ok: false as const, message: "Enter a phone number." };
+  if (input.password.length < 10) return { ok: false as const, message: "Use a password of at least 10 characters." };
+  const passwordHash = await hashPassword(input.password);
+  const saved = await locked(async () => {
     const desk = await readDesk();
-    let member = desk.members.find((item) => item.email === address);
-    if (member?.status === "active") {
+    const existing = desk.members.find((item) => item.email === address);
+    if (existing && existing.status !== "revoked") {
       return { ok: false as const, message: "That person already has access." };
     }
     const now = new Date().toISOString();
-    if (!member) {
-      member = {
-        id: randomBytes(8).toString("hex"),
-        email: address,
-        role: "member",
-        status: "invited",
-        passwordHash: "",
-        createdAt: now,
-        activatedAt: "",
-        revokedAt: "",
-      };
-      desk.members.push(member);
-    } else {
-      member.status = "invited";
-      member.revokedAt = "";
-    }
-    for (const link of desk.links) {
-      if (link.memberId === member.id && link.purpose === "invite" && !link.usedAt) link.usedAt = now;
-    }
-    const token = randomBytes(32).toString("base64url");
-    desk.links.push({
+    const member = existing ?? {
       id: randomBytes(8).toString("hex"),
-      memberId: member.id,
-      purpose: "invite",
-      tokenHash: hashToken(token),
-      expiresAt: future(INVITE_SECONDS),
-      usedAt: "",
+      email: address,
+      firstName,
+      lastName,
+      phone,
+      role: "member" as const,
+      status: "active" as const,
+      passwordHash,
       createdAt: now,
-    });
+      activatedAt: now,
+      revokedAt: "",
+    };
+    member.firstName = firstName;
+    member.lastName = lastName;
+    member.phone = phone;
+    member.status = "active";
+    member.passwordHash = passwordHash;
+    member.activatedAt = now;
+    member.revokedAt = "";
+    if (!existing) desk.members.push(member);
     await writeDesk(desk);
-    return { ok: true as const, url: `${origin}/staff/invite?token=${token}` };
+    return { ok: true as const };
   });
+  if (!saved.ok) return saved;
+  const emailed = await sendBackendEmail({
+    type: "staff-invite",
+    to: address,
+    firstName,
+    email: address,
+    password: input.password,
+  });
+  return { ok: true as const, emailed };
 }
 
 export async function reissueStaffInvite(actor: StaffViewer, memberId: string, origin: string) {
@@ -709,25 +747,20 @@ export async function reissueStaffInvite(actor: StaffViewer, memberId: string, o
   });
 }
 
-export async function revokeStaff(actor: StaffViewer, memberId: string) {
-  if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can change access." };
+export async function deleteStaff(actor: StaffViewer, memberId: string) {
+  if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can delete a team member." };
+  if (actor.id === memberId) return { ok: false as const, message: "You cannot delete your own account." };
   return locked(async () => {
     const desk = await readDesk();
     const member = desk.members.find((item) => item.id === memberId);
     if (!member) return { ok: false as const, message: "That person is not on the team." };
     const owners = desk.members.filter((item) => item.role === "owner" && item.status === "active");
     if (member.role === "owner" && owners.length < 2) {
-      return { ok: false as const, message: "The last owner cannot be removed." };
+      return { ok: false as const, message: "The last owner cannot be deleted." };
     }
-    const now = new Date().toISOString();
-    member.status = "revoked";
-    member.revokedAt = now;
-    for (const link of desk.links) {
-      if (link.memberId === member.id && !link.usedAt) link.usedAt = now;
-    }
-    for (const session of desk.sessions) {
-      if (session.memberId === member.id && !session.revokedAt) session.revokedAt = now;
-    }
+    desk.members = desk.members.filter((item) => item.id !== memberId);
+    desk.links = desk.links.filter((item) => item.memberId !== memberId);
+    desk.sessions = desk.sessions.filter((item) => item.memberId !== memberId);
     await writeDesk(desk);
     return { ok: true as const };
   });

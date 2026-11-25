@@ -1,28 +1,36 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { inviteStaff, isStaff, reissueStaffInvite, revokeStaff } from "../../lib/backend/staff";
+import { deleteStaff, inviteStaff, isStaff } from "../../lib/backend/staff";
 import { rememberError, rememberLink } from "../../lib/vendor/server";
 
-export const POST: APIRoute = async ({ request, cookies, redirect, url }) => {
+function text(form: FormData | null, name: string, max: number) {
+  return String(form?.get(name) ?? "")
+    .trim()
+    .slice(0, max);
+}
+
+export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const member = await isStaff(cookies);
   if (!member) return redirect("/staff");
   if (!member.passwordSet) return redirect("/staff/password");
   const form = await request.formData().catch(() => null);
-  const intent = String(form?.get("intent") ?? "");
-  if (intent === "revoke") {
-    const result = await revokeStaff(member, String(form?.get("id") ?? ""));
+  const intent = text(form, "intent", 20);
+  if (intent === "delete") {
+    const result = await deleteStaff(member, text(form, "id", 40));
     if (!result.ok) rememberError(cookies, result.message);
     return redirect("/staff/team");
   }
-  if (intent === "reissue") {
-    const result = await reissueStaffInvite(member, String(form?.get("id") ?? ""), url.origin);
-    if (!result.ok) rememberError(cookies, result.message);
-    if (result.ok) rememberLink(cookies, result.url);
-    return redirect("/staff/team");
-  }
-  const result = await inviteStaff(member, String(form?.get("email") ?? ""), url.origin);
+  const result = await inviteStaff(member, {
+    firstName: text(form, "firstName", 60),
+    lastName: text(form, "lastName", 60),
+    email: text(form, "email", 200).toLowerCase(),
+    phone: text(form, "phone", 30),
+    password: text(form, "password", 200),
+  });
   if (!result.ok) rememberError(cookies, result.message);
-  if (result.ok) rememberLink(cookies, result.url);
+  else if (!result.emailed) {
+    rememberError(cookies, "The account was created, but the invitation could not be sent from the office email.");
+  } else rememberLink(cookies, "sent");
   return redirect("/staff/team");
 };

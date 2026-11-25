@@ -39,43 +39,48 @@ const statusLabel = {
           <>
             {error && <p class="form-error" role="alert">{error}</p>}
             {
-              link && (
-                <div class="field">
-                  <label for="invite-link">Invitation link</label>
-                  <input id="invite-link" readonly value={link} />
-                  <p>Copy this link and send it yourself. It expires and works once. The recipient still confirms their inbox.</p>
-                </div>
+              link === "sent" && (
+                <p>The invitation was sent from the office email. It includes the password you set and a button to sign in.</p>
               )
             }
             <form class="form" method="post" action="/api/staff-team">
               <div class="field">
+                <label for="team-first">First name</label>
+                <input id="team-first" name="firstName" type="text" maxlength="60" required />
+              </div>
+              <div class="field">
+                <label for="team-last">Last name</label>
+                <input id="team-last" name="lastName" type="text" maxlength="60" required />
+              </div>
+              <div class="field">
                 <label for="team-email">Email</label>
                 <input id="team-email" name="email" type="email" maxlength="200" required />
+              </div>
+              <div class="field">
+                <label for="team-phone">Phone</label>
+                <input id="team-phone" name="phone" type="tel" maxlength="30" required />
+              </div>
+              <div class="field">
+                <label for="team-password">Password</label>
+                <input id="team-password" name="password" type="password" minlength="10" autocomplete="new-password" required />
+                <p>This password is emailed to them from the office address, with a button to sign in.</p>
               </div>
               <button class="button" type="submit">Create invitation</button>
             </form>
             <ul class="review-list">
               {people.map((person) => (
                 <li class="review-card">
-                  <h3>{person.email}</h3>
+                  <h3>{[person.firstName, person.lastName].filter(Boolean).join(" ") || person.email}</h3>
                   <p>
-                    {person.role === "owner" ? "Owner" : "Team"} · {statusLabel[person.status]}
+                    {person.email}{person.phone ? ` · ${person.phone}` : ""}
                   </p>
-                  {
-                    person.status !== "active" && (
-                      <form method="post" action="/api/staff-team">
-                        <input type="hidden" name="intent" value="reissue" />
-                        <input type="hidden" name="id" value={person.id} />
-                        <button class="text-link" type="submit">Reissue invitation</button>
-                      </form>
-                    )
-                  }
+                  <p>{person.role === "owner" ? "Owner" : "Team"} · {statusLabel[person.status]}</p>
                   {
                     person.id !== member.id && (
                       <form method="post" action="/api/staff-team">
-                        <input type="hidden" name="intent" value="revoke" />
+                        <input type="hidden" name="intent" value="delete" />
                         <input type="hidden" name="id" value={person.id} />
-                        <button class="text-link" type="submit">Revoke access</button>
+                        <button class="text-link" type="submit">Delete</button>
                       </form>
                     )
                   }

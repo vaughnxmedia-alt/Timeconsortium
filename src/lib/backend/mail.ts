@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { site } from "../../config/site";
 import { env } from "./env";
 import { renderLetter, type Letter } from "./letter";
 
@@ -107,6 +108,28 @@ function messageFor(payload: Record<string, string>): Outbound | null {
         note:
           payload.note ||
           "You're receiving this because you asked Timeless Consortium to write when there's news about the evening.",
+      },
+    };
+  }
+  if (payload.type === "staff-invite" && payload.to && payload.email && payload.password) {
+    const name = payload.firstName?.trim();
+    const signIn = new URL(site.url);
+    signIn.searchParams.set("teams", "1");
+    signIn.searchParams.set("email", payload.email);
+    return {
+      lane: "office" as const,
+      to: [payload.to],
+      subject: "Your Timeless Consortium team access",
+      letter: {
+        heading: "Your team access.",
+        paragraphs: [
+          name ? `Hello ${name},` : "Hello,",
+          "Timeless Consortium created your Teams access. Sign in with this email and the password below. There is no public signup.",
+          `Email: ${payload.email}`,
+          `Password: ${payload.password}`,
+        ],
+        button: { label: "Sign in", href: signIn.toString() },
+        note: "This email contains your password. Keep it private.",
       },
     };
   }

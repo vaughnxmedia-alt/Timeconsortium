@@ -19,8 +19,9 @@
  * - Applications and sponsor inquiries are saved by the server into Supabase
  *   when SUPABASE_URL and SUPABASE_SECRET_KEY are set.
  * - The first owner is created with scripts/create-staff-owner.mjs after the
- *   staff migration. There is no public setup route. Teams sign-in is email
- *   only. SIGNING_SECRET must be at least 32 characters on the server.
+ *   staff migration. There is no public signup. Teams opens a sign-in window.
+ *   A new team member is emailed their password from the office address.
+ *   SIGNING_SECRET must be at least 32 characters on the server.
  *   Square ticket totals stay at zero until SQUARE_ACCESS_TOKEN and
  *   SQUARE_LOCATION_ID are set.
  * - When Square is configured, accepting a paid vendor creates a Square
@@ -56,7 +57,7 @@ export type Concept = {
 export const site = {
   name: "Timeless Consortium",
   partner: "JahKnowsPR Firm LLC",
-  url: "https://www.thomasconsortium.com",
+  url: "https://www.timelessconsortium.com",
   shareImage: "/og/reverie-ember.jpg",
   shareImageAlt:
     "Reverie & Ember, a wedding and event experience in Beaumont, Texas, on Saturday, March 20, 2027.",

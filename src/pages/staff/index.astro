@@ -15,7 +15,6 @@ Astro.response.headers.set("Referrer-Policy", "no-referrer");
 const member = await isStaff(Astro.cookies);
 if (member && !member.passwordSet) return Astro.redirect("/staff/password");
 const setupEmail = member ? "" : await ownerPasswordNeeded();
-const sent = Astro.url.searchParams.get("sent") === "1";
 const error = Astro.url.searchParams.get("error") ?? "";
 
 const people = member ? await listSubscribers() : [];
@@ -252,12 +251,8 @@ const occasion = new Intl.DateTimeFormat("en-US", {
       <div class="page-body">
         <div class="page-body-inner">
           <form class="form" method="post" action="/api/staff-login">
-            {sent && (
-              <p class="confirmation" role="status">
-                If this inbox has access, a sign-in link is on its way.
-              </p>
-            )}
             {error && <p class="form-error" role="alert">{error}</p>}
+            <p>Sign in with the email and password for your team account. There is no public signup.</p>
             <div class="field">
               <label for="staff-email">Email</label>
               <input id="staff-email" name="email" type="email" autocomplete="username" maxlength="200" required />
