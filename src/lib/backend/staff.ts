@@ -719,6 +719,38 @@ export async function inviteStaff(
   return { ok: true as const, emailed };
 }
 
+export async function resendStaffInvite(actor: StaffViewer, memberId: string, password: string) {
+  if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can send an invitation." };
+  if (password.length < 10) return { ok: false as const, message: "Use a password of at least 10 characters." };
+  const passwordHash = await hashPassword(password);
+  const saved = await locked(async () => {
+    const desk = await readDesk();
+    const member = desk.members.find((item) => item.id === memberId);
+    if (!member || member.status === "revoked") {
+      return { ok: false as const, message: "That person is not on the team." };
+    }
+    member.passwordHash = passwordHash;
+    member.status = "active";
+    member.activatedAt = member.activatedAt || new Date().toISOString();
+    member.revokedAt = "";
+    await writeDesk(desk);
+    return {
+      ok: true as const,
+      email: member.email,
+      firstName: member.firstName || "",
+    };
+  });
+  if (!saved.ok) return saved;
+  const emailed = await sendBackendEmail({
+    type: "staff-invite",
+    to: saved.email,
+    firstName: saved.firstName,
+    email: saved.email,
+    password,
+  });
+  return { ok: true as const, emailed };
+}
+
 export async function reissueStaffInvite(actor: StaffViewer, memberId: string, origin: string) {
   if (actor.role !== "owner") return { ok: false as const, message: "Only the owner can invite the team." };
   return locked(async () => {

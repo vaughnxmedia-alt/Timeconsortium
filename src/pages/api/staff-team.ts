@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { deleteStaff, inviteStaff, isStaff } from "../../lib/backend/staff";
+import { deleteStaff, inviteStaff, isStaff, resendStaffInvite } from "../../lib/backend/staff";
 import { rememberError, rememberLink } from "../../lib/vendor/server";
 
 function text(form: FormData | null, name: string, max: number) {
@@ -19,6 +19,14 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   if (intent === "delete") {
     const result = await deleteStaff(member, text(form, "id", 40));
     if (!result.ok) rememberError(cookies, result.message);
+    return redirect("/staff/team");
+  }
+  if (intent === "resend") {
+    const result = await resendStaffInvite(member, text(form, "id", 40), text(form, "password", 200));
+    if (!result.ok) rememberError(cookies, result.message);
+    else if (!result.emailed) {
+      rememberError(cookies, "The invitation could not be sent from the office email.");
+    } else rememberLink(cookies, "sent");
     return redirect("/staff/team");
   }
   const result = await inviteStaff(member, {

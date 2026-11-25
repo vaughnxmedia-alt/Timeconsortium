@@ -77,11 +77,29 @@ const statusLabel = {
                   <p>{person.role === "owner" ? "Owner" : "Team"} · {statusLabel[person.status]}</p>
                   {
                     person.id !== member.id && (
-                      <form method="post" action="/api/staff-team">
-                        <input type="hidden" name="intent" value="delete" />
-                        <input type="hidden" name="id" value={person.id} />
-                        <button class="text-link" type="submit">Delete</button>
-                      </form>
+                      <>
+                        <form method="post" action="/api/staff-team">
+                          <input type="hidden" name="intent" value="resend" />
+                          <input type="hidden" name="id" value={person.id} />
+                          <div class="field">
+                            <label for={`resend-password-${person.id}`}>Password</label>
+                            <input
+                              id={`resend-password-${person.id}`}
+                              name="password"
+                              type="password"
+                              minlength="10"
+                              autocomplete="new-password"
+                              required
+                            />
+                          </div>
+                          <button class="button" type="submit">Send invitation</button>
+                        </form>
+                        <form method="post" action="/api/staff-team">
+                          <input type="hidden" name="intent" value="delete" />
+                          <input type="hidden" name="id" value={person.id} />
+                          <button class="text-link" type="submit">Delete</button>
+                        </form>
+                      </>
                     )
                   }
                 </li>

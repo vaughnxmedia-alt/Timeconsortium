@@ -1654,6 +1654,10 @@ a {
   font-weight: 600;
 }
 
+.review-card form {
+  margin-top: 0.85rem;
+}
+
 .notice-body {
   white-space: pre-wrap;
 }
