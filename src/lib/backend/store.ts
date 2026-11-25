@@ -169,6 +169,70 @@ export async function loadPrivateDatabase(): Promise<DatabaseShape> {
   };
 }
 
+export type NoticeRecipient = {
+  email: string;
+  status: "sent" | "failed";
+};
+
+export type NoticeRecord = {
+  id: string;
+  createdAt: string;
+  subject: string;
+  body: string;
+  sentCount: number;
+  failedCount: number;
+  recipients: NoticeRecipient[];
+};
+
+export async function loadNotices(): Promise<NoticeRecord[]> {
+  const client = admin();
+  if (!client) return [];
+  const { data, error } = await client.from("notices").select("*").order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const { data: recipients, error: recipientError } = await client.from("notice_recipients").select("*");
+  if (recipientError) throw new Error(recipientError.message);
+  const byNotice = new Map<string, NoticeRecipient[]>();
+  for (const row of (recipients ?? []) as unknown as Record<string, unknown>[]) {
+    const noticeId = text(row.notice_id);
+    const status = text(row.status) === "failed" ? "failed" : "sent";
+    const current = byNotice.get(noticeId) ?? [];
+    current.push({ email: text(row.email), status });
+    byNotice.set(noticeId, current);
+  }
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
+    id: text(row.id),
+    createdAt: text(row.created_at),
+    subject: text(row.subject),
+    body: text(row.body),
+    sentCount: Number(row.sent_count) || 0,
+    failedCount: Number(row.failed_count) || 0,
+    recipients: byNotice.get(text(row.id)) ?? [],
+  }));
+}
+
+export async function insertNotice(notice: NoticeRecord) {
+  const client = admin();
+  if (!client) return;
+  const { error } = await client.from("notices").insert({
+    id: notice.id,
+    created_at: notice.createdAt,
+    subject: notice.subject,
+    body: notice.body,
+    sent_count: notice.sentCount,
+    failed_count: notice.failedCount,
+  });
+  if (error) throw new Error(error.message);
+  if (!notice.recipients.length) return;
+  const { error: recipientError } = await client.from("notice_recipients").insert(
+    notice.recipients.map((recipient) => ({
+      notice_id: notice.id,
+      email: recipient.email,
+      status: recipient.status,
+    })),
+  );
+  if (recipientError) throw new Error(recipientError.message);
+}
+
 export async function savePrivateDatabase(database: DatabaseShape) {
   const client = admin();
   if (!client) return;

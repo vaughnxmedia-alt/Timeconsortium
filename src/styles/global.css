@@ -1404,6 +1404,10 @@ a {
   font-weight: 600;
 }
 
+.notice-body {
+  white-space: pre-wrap;
+}
+
 .form.is-preview input:disabled {
   opacity: 1;
   color: var(--ink);

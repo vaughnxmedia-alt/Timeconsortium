@@ -18,8 +18,9 @@
  * The Makers (/vendor-hub) and sponsorship
  * - Applications and sponsor inquiries are saved by the server into Supabase
  *   when SUPABASE_URL and SUPABASE_SECRET_KEY are set.
- * - STAFF_ACCESS_TOKEN opens /staff/vendors. Guest mail is sent from
- *   welcome@ and vendor mail from office@. Neither is sent until Resend is configured.
+ * - STAFF_ACCESS_TOKEN opens /staff/vendors and /staff/subscribers.
+ *   Guest mail is sent from welcome@ and vendor mail from office@.
+ *   Neither is sent until Resend is configured.
  * - When Square is configured, accepting a paid vendor creates a Square
  *   checkout link. A fee cannot be confirmed until payment is recorded.
  * - Event-day instructions live in vendorProgram.eventDay.

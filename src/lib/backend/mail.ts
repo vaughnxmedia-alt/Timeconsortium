@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { env } from "./env";
+import { renderLetter, type Letter } from "./letter";
 
 type Lane = "welcome" | "office";
 
@@ -13,6 +14,10 @@ export function resendConfigured() {
 
 export function officeInbox() {
   return mailbox(env("RESEND_FROM_OFFICE"));
+}
+
+export function welcomeInbox() {
+  return mailbox(env("RESEND_FROM_WELCOME"));
 }
 
 function fromAddress(lane: Lane) {
@@ -29,36 +34,46 @@ type Outbound = {
   lane: Lane;
   to: string[];
   subject: string;
-  text: string;
-  copy?: { subject: string; text: string };
+  letter: Letter;
+  copy?: { subject: string; letter: Letter };
 };
+
+function blocks(value: string) {
+  return value
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
 
 function messageFor(payload: Record<string, string>): Outbound | null {
   const event = "Reverie & Ember";
+  const hello = payload.businessName ? `Hello ${payload.businessName},` : "Hello,";
   if (payload.type === "vendor-receipt" && payload.to) {
     return {
       lane: "office" as const,
       to: [payload.to],
       subject: `We received your request for ${event}`,
-      text: [
-        `Hello${payload.businessName ? ` ${payload.businessName}` : ""},`,
-        "",
-        `Timeless Consortium received your request to take part in ${event}.`,
-        "The team will review it and follow up by email.",
-      ].join("\n"),
+      letter: {
+        heading: "We received your request.",
+        paragraphs: [
+          hello,
+          `Timeless Consortium received your request to take part in ${event}.`,
+          "The team will review it and follow up by email.",
+        ],
+      },
       copy: {
         subject: `Vendor request from ${payload.businessName || payload.contactName || "a vendor"}`,
-        text: [
-          `A vendor request arrived for ${event}.`,
-          "",
-          `Business: ${payload.businessName || ""}`,
-          `Contact: ${payload.contactName || ""}`,
-          `Email: ${payload.email || payload.to}`,
-          `Specialty: ${payload.specialty || ""}`,
-          `Portfolio: ${payload.portfolio || ""}`,
-          "",
-          payload.contribution || "(No contribution note)",
-        ].join("\n"),
+        letter: {
+          heading: "A vendor request arrived.",
+          paragraphs: [
+            `Business: ${payload.businessName || ""}`,
+            `Contact: ${payload.contactName || ""}`,
+            `Email: ${payload.email || payload.to}`,
+            `Specialty: ${payload.specialty || ""}`,
+            `Portfolio: ${payload.portfolio || ""}`,
+            payload.contribution || "(No contribution note)",
+          ],
+        },
       },
     };
   }
@@ -68,16 +83,31 @@ function messageFor(payload: Record<string, string>): Outbound | null {
       lane: "office" as const,
       to: [payload.to],
       subject: accepted ? `Your ${event} participation link` : `Your ${event} sign-in link`,
-      text: [
-        `Hello${payload.businessName ? ` ${payload.businessName}` : ""},`,
-        "",
-        accepted
-          ? `Your request to take part in ${event} has been accepted. Open this link to review the details and confirm:`
-          : `Use this link to return to your ${event} participation page:`,
-        payload.link,
-        "",
-        "This link expires in 7 days.",
-      ].join("\n"),
+      letter: {
+        heading: accepted ? "Your request has been accepted." : "Your sign-in link.",
+        paragraphs: [
+          hello,
+          accepted
+            ? `Your request to take part in ${event} has been accepted. Open this link to review the details and confirm.`
+            : `Use this link to return to your ${event} participation page.`,
+        ],
+        button: { label: accepted ? "Review and confirm" : "Open your page", href: payload.link },
+        note: "This link expires in 7 days.",
+      },
+    };
+  }
+  if (payload.type === "list-notice" && payload.to && payload.subject && payload.message) {
+    return {
+      lane: "welcome" as const,
+      to: [payload.to],
+      subject: payload.subject,
+      letter: {
+        heading: payload.subject,
+        paragraphs: blocks(payload.message),
+        note:
+          payload.note ||
+          "You're receiving this because you asked Timeless Consortium to write when there's news about the evening.",
+      },
     };
   }
   if (payload.type === "ticket-list-signup" && payload.email) {
@@ -85,13 +115,18 @@ function messageFor(payload: Record<string, string>): Outbound | null {
       lane: "welcome" as const,
       to: [payload.email],
       subject: `You're on the list for ${event}`,
-      text: [
-        `You're on the list for ${event}.`,
-        "We'll email you when tickets go on sale.",
-      ].join("\n"),
+      letter: {
+        heading: "You're on the list.",
+        paragraphs: ["We'll email you when tickets go on sale."],
+        button: { label: "View the evening", href: "https://www.timelessconsortium.com/" },
+        note: "You asked Timeless Consortium to write when there is news about the evening.",
+      },
       copy: {
         subject: `Ticket list: ${payload.email}`,
-        text: `${payload.email} asked to be notified when tickets for ${event} go on sale.`,
+        letter: {
+          heading: "Someone joined the list.",
+          paragraphs: [`${payload.email} asked to be notified when tickets for ${event} go on sale.`],
+        },
       },
     };
   }
@@ -100,25 +135,29 @@ function messageFor(payload: Record<string, string>): Outbound | null {
       lane: "office" as const,
       to: [payload.to],
       subject: `Sponsorship inquiry from ${payload.organization || payload.contactName || "a partner"}`,
-      text: [
-        `${payload.contactName} (${payload.email}) wrote about ${payload.organization}.`,
-        `Interest: ${payload.interest}`,
-        "",
-        payload.message || "(No message)",
-      ].join("\n"),
+      letter: {
+        heading: "A sponsorship inquiry arrived.",
+        paragraphs: [
+          `${payload.contactName} (${payload.email}) wrote about ${payload.organization}.`,
+          `Interest: ${payload.interest}`,
+          payload.message || "(No message)",
+        ],
+      },
     };
   }
   return null;
 }
 
-async function send(resend: Resend, lane: Lane, input: { to: string[]; subject: string; text: string }) {
+async function send(resend: Resend, lane: Lane, input: { to: string[]; subject: string; letter: Letter }) {
   const from = fromAddress(lane);
+  const rendered = renderLetter(input.letter);
   const { error } = await resend.emails.send({
     from,
     to: input.to,
     replyTo: mailbox(from) || undefined,
     subject: input.subject,
-    text: input.text,
+    html: rendered.html,
+    text: rendered.text,
   });
   if (error) {
     console.error("Resend could not send mail", error.message);
@@ -134,7 +173,7 @@ export async function sendBackendEmail(payload: Record<string, string>) {
   const sent = await send(resend, message.lane, message);
   const copyTo = mailbox(fromAddress(message.lane));
   if (message.copy && copyTo && !message.to.includes(copyTo)) {
-    await send(resend, message.lane, { to: [copyTo], ...message.copy });
+    await send(resend, message.lane, { to: [copyTo], subject: message.copy.subject, letter: message.copy.letter });
   }
   return sent;
 }

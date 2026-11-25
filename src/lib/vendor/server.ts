@@ -7,9 +7,16 @@ import {
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env } from "../backend/env";
-import { officeInbox, resendConfigured, sendBackendEmail } from "../backend/mail";
+import { officeInbox, resendConfigured, sendBackendEmail, welcomeInbox } from "../backend/mail";
 import { createVendorPaymentLink, squareConfigured } from "../backend/square";
-import { loadPrivateDatabase, savePrivateDatabase, supabaseConfigured } from "../backend/store";
+import {
+  insertNotice,
+  loadNotices,
+  loadPrivateDatabase,
+  savePrivateDatabase,
+  supabaseConfigured,
+  type NoticeRecord,
+} from "../backend/store";
 import { ticketSignup, vendorProgram } from "../../config/site";
 import { isPreview, sponsorshipInbox } from "../presentation";
 import {
@@ -115,6 +122,7 @@ type CookieJar = {
 
 const directory = join(process.cwd(), "data", "private");
 const databasePath = join(directory, "queue.json");
+const noticesPath = join(directory, "notices.json");
 const secretPath = join(directory, "secret");
 const LINK_DAYS = 7;
 const SESSION_DAYS = 7;
@@ -552,6 +560,89 @@ export async function saveTicketListSignup(form: FormData) {
     );
   }
   return { saved: true as const };
+}
+
+export async function listSubscribers() {
+  const database = await readDatabase();
+  return [...database.ticketList].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function listNoticesSent(): Promise<NoticeRecord[]> {
+  if (supabaseConfigured()) return loadNotices();
+  try {
+    const parsed = JSON.parse(await readFile(noticesPath, "utf8")) as NoticeRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function plain(value: string, max: number) {
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max);
+}
+
+export async function notifySubscribers(subjectInput: string, bodyInput: string) {
+  const subject = plain(subjectInput, 140).replace(/[\r\n]+/g, " ");
+  const body = plain(bodyInput, 4000);
+  if (!subject || !body) {
+    return { ok: false as const, message: "Write a subject and a message before emailing the list." };
+  }
+  const people = await listSubscribers();
+  if (!people.length) {
+    return { ok: false as const, message: "No one is waiting to be notified yet." };
+  }
+  if (!resendConfigured()) {
+    return { ok: false as const, message: "Email is not configured. Set Resend before writing to the list." };
+  }
+
+  const recipients: NoticeRecord["recipients"] = [];
+  for (const person of people) {
+    const delivered = await sendBackendEmail({
+      type: "list-notice",
+      to: person.email,
+      subject,
+      message: body,
+    });
+    recipients.push({ email: person.email, status: delivered ? "sent" : "failed" });
+  }
+
+  const notice: NoticeRecord = {
+    id: randomBytes(8).toString("hex"),
+    createdAt: new Date().toISOString(),
+    subject,
+    body,
+    sentCount: recipients.filter((item) => item.status === "sent").length,
+    failedCount: recipients.filter((item) => item.status === "failed").length,
+    recipients,
+  };
+
+  if (supabaseConfigured()) {
+    await insertNotice(notice);
+  } else {
+    const existing = await listNoticesSent();
+    await mkdir(directory, { recursive: true });
+    const temporary = `${noticesPath}.${randomBytes(4).toString("hex")}.tmp`;
+    await writeFile(temporary, JSON.stringify([notice, ...existing]), { mode: 0o600 });
+    await rename(temporary, noticesPath);
+  }
+
+  const inbox = welcomeInbox();
+  if (inbox) {
+    await sendBackendEmail({
+      type: "list-notice",
+      to: inbox,
+      subject: `List note sent: ${subject}`,
+      message: [
+        `Sent to ${notice.sentCount}.`,
+        notice.failedCount ? `Could not reach ${notice.failedCount}.` : "Everyone on the list received it.",
+        "",
+        body,
+      ].join("\n"),
+      note: "This copy is for the Welcome desk.",
+    });
+  }
+
+  return { ok: true as const, sent: notice.sentCount, failed: notice.failedCount };
 }
 
 function cookieOptions(maxAge: number, path = "/") {

@@ -1,0 +1,165 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import { emailConfigured, isStaff, listNoticesSent, listSubscribers, staffConfigured, takeError } from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const configured = staffConfigured();
+const allowed = configured && (await isStaff(Astro.cookies));
+const people = allowed ? await listSubscribers() : [];
+const notices = allowed ? await listNoticesSent() : [];
+const loginError = Astro.url.searchParams.get("error") === "1";
+const formError = allowed ? takeError(Astro.cookies) : "";
+const sent = Number(Astro.url.searchParams.get("sent"));
+const failed = Number(Astro.url.searchParams.get("failed"));
+const justSent = Astro.url.searchParams.has("sent") && Number.isInteger(sent) && sent >= 0;
+
+function when(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Chicago",
+  }).format(date);
+}
+
+function countLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+---
+
+<Base
+  title="Notify list | Timeless Consortium"
+  description="Private list of people waiting to hear from Timeless Consortium."
+  path="/staff/subscribers"
+  robots="noindex, nofollow"
+>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">Staff</p>
+      <h1>Notify list</h1>
+      {
+        allowed && !emailConfigured() && (
+          <p class="preview-note">
+            Email delivery is not configured. Set RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE before a note can be sent.
+          </p>
+        )
+      }
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner">
+      {
+        !configured && (
+          <p class="preview-note">
+            The notify list stays closed until STAFF_ACCESS_TOKEN is set on the server. Signups can still be saved.
+          </p>
+        )
+      }
+      {
+        configured && !allowed && (
+          <form class="form" method="post" action="/api/staff-login">
+            <input type="hidden" name="next" value="/staff/subscribers" />
+            {loginError && <p class="form-error" role="alert">That access token was not accepted.</p>}
+            <div class="field">
+              <label for="staff-token">Staff access token</label>
+              <input id="staff-token" name="token" type="password" autocomplete="current-password" required />
+            </div>
+            <button class="button" type="submit">Open the list</button>
+          </form>
+        )
+      }
+      {
+        allowed && (
+          <>
+            <p>
+              <a href="/staff/vendors">Vendor review</a>
+            </p>
+            <form method="post" action="/api/staff-logout">
+              <button class="text-link" type="submit">Log out</button>
+            </form>
+            {formError && <p class="form-error" role="alert">{formError}</p>}
+            {
+              justSent && (
+                <p class="confirmation" role="status">
+                  {failed > 0
+                    ? `The note reached ${countLabel(sent, "person", "people")}. ${countLabel(failed, "address", "addresses")} could not be reached.`
+                    : `The note reached ${countLabel(sent, "person", "people")}.`}
+                </p>
+              )
+            }
+            <section>
+              <h2>Waiting to hear</h2>
+              <p>These people asked to be emailed when there is news about Reverie &amp; Ember.</p>
+              {
+                people.length === 0 ? (
+                  <p>No one has asked to be notified yet.</p>
+                ) : (
+                  <ul class="review-list">
+                    {people.map((person) => (
+                      <li class="review-card">
+                        <h3>{person.email}</h3>
+                        <p>Joined {when(person.createdAt)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              }
+            </section>
+            {
+              people.length > 0 && (
+                <section>
+                  <h2>Write to the list</h2>
+                  <p>Each person receives their own email from Welcome. No one sees the rest of the list.</p>
+                  <form class="form" method="post" action="/api/staff-notify">
+                    <div class="field">
+                      <label for="notice-subject">Subject</label>
+                      <input id="notice-subject" name="subject" type="text" maxlength="140" required />
+                    </div>
+                    <div class="field">
+                      <label for="notice-message">Message</label>
+                      <textarea id="notice-message" name="message" maxlength="4000" required />
+                    </div>
+                    <label class="check">
+                      <input type="checkbox" name="confirm" value="yes" required />
+                      <span>Send this to everyone waiting to be notified.</span>
+                    </label>
+                    <button class="button" type="submit">Email the list</button>
+                  </form>
+                </section>
+              )
+            }
+            <section>
+              <h2>Notes sent</h2>
+              {
+                notices.length === 0 ? (
+                  <p>No notes have been sent.</p>
+                ) : (
+                  <ul class="review-list">
+                    {notices.map((notice) => {
+                      const missed = notice.recipients.filter((item) => item.status === "failed").map((item) => item.email);
+                      return (
+                        <li class="review-card">
+                          <h3>{notice.subject}</h3>
+                          <p>
+                            {when(notice.createdAt)} · Sent to {notice.sentCount}
+                            {notice.failedCount ? ` · ${notice.failedCount} not reached` : ""}
+                          </p>
+                          <p class="notice-body">{notice.body}</p>
+                          {missed.length > 0 && <p>Could not reach: {missed.join(", ")}</p>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              }
+            </section>
+          </>
+        )
+      }
+    </div>
+  </div>
+</Base>
