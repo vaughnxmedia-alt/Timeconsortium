@@ -7,7 +7,7 @@ import {
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env } from "../backend/env";
-import { resendConfigured, sendBackendEmail } from "../backend/mail";
+import { officeInbox, resendConfigured, sendBackendEmail } from "../backend/mail";
 import { createVendorPaymentLink, squareConfigured } from "../backend/square";
 import { loadPrivateDatabase, savePrivateDatabase, supabaseConfigured } from "../backend/store";
 import { ticketSignup, vendorProgram } from "../../config/site";
@@ -418,7 +418,7 @@ async function deliver(payload: Record<string, string>) {
 
 async function notifySponsor(record: SponsorRecord) {
   const inbox = sponsorshipInbox();
-  const recipient = inbox.startsWith("mailto:") ? inbox.slice("mailto:".length) : env("RESEND_INBOX");
+  const recipient = inbox.startsWith("mailto:") ? inbox.slice("mailto:".length) : officeInbox();
   if (resendConfigured() && recipient) {
     return sendBackendEmail({
       type: "sponsor-inquiry",
@@ -473,7 +473,12 @@ export async function saveApplication(input: {
   record.receiptSent = await deliver({
     type: "vendor-receipt",
     to: record.email,
+    email: record.email,
+    contactName: record.contactName,
     businessName: record.businessName,
+    specialty: record.specialty,
+    portfolio: record.portfolio,
+    contribution: record.contribution,
     id: record.id,
   });
   if (record.receiptSent) {

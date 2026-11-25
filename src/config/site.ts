@@ -4,8 +4,8 @@
  *
  * Tickets
  * - phase "updates": buttons say “Join the List” and open the ticket-release
- *   signup form. RESEND_API_KEY and RESEND_FROM must be set; success shows
- *   only after Resend accepts the signup email.
+ *   signup form. RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE
+ *   must be set; success shows only after Resend accepts the signup email.
  * - phase "sales" + checkoutUrl: buttons say “Get Tickets”.
  * - signupUrl is unused for the on-site form; keep checkoutUrl blank until sales.
  *
@@ -18,8 +18,8 @@
  * The Makers (/vendor-hub) and sponsorship
  * - Applications and sponsor inquiries are saved by the server into Supabase
  *   when SUPABASE_URL and SUPABASE_SECRET_KEY are set.
- * - STAFF_ACCESS_TOKEN opens /staff/vendors. Resend sends receipts and
- *   acceptance links. Neither is sent until that delivery is configured.
+ * - STAFF_ACCESS_TOKEN opens /staff/vendors. Guest mail is sent from
+ *   welcome@ and vendor mail from office@. Neither is sent until Resend is configured.
  * - When Square is configured, accepting a paid vendor creates a Square
  *   checkout link. A fee cannot be confirmed until payment is recorded.
  * - Event-day instructions live in vendorProgram.eventDay.
@@ -399,7 +399,7 @@ export const ticketSignup = {
   submitLabel: "Join the List",
   success: "You’re on the list. We’ll email you when tickets go on sale.",
   unconfigured:
-    "Ticket-release signup is not connected yet. Set RESEND_API_KEY and RESEND_FROM to send the announcement list.",
+    "Ticket-release signup is not connected yet. Set RESEND_API_KEY and RESEND_FROM_WELCOME to send the announcement list.",
   invalidEmail: "Enter a valid email address.",
   failure: "We could not complete your signup. Please try again.",
 };
