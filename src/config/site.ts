@@ -4,8 +4,8 @@
  *
  * Tickets
  * - phase "updates": buttons say “Join the List” and open the ticket-release
- *   signup form. EMAIL_WEBHOOK_URL must be an https endpoint; success shows
- *   only after that provider confirms the signup.
+ *   signup form. RESEND_API_KEY and RESEND_FROM must be set; success shows
+ *   only after Resend accepts the signup email.
  * - phase "sales" + checkoutUrl: buttons say “Get Tickets”.
  * - signupUrl is unused for the on-site form; keep checkoutUrl blank until sales.
  *
@@ -16,11 +16,12 @@
  *   The public build hides the name, photo, rate, deadline, and button.
  *
  * The Makers (/vendor-hub) and sponsorship
- * - Applications and sponsor inquiries are saved by the server into a private queue.
- * - STAFF_ACCESS_TOKEN opens /staff/vendors. EMAIL_WEBHOOK_URL (https) sends
- *   receipts and acceptance links. Neither is sent until that delivery is configured.
- * - Staff set each vendor’s fee, confirmation deadline, and hosted checkout URL.
- *   A fee cannot be confirmed until payment is recorded.
+ * - Applications and sponsor inquiries are saved by the server into Supabase
+ *   when SUPABASE_URL and SUPABASE_SECRET_KEY are set.
+ * - STAFF_ACCESS_TOKEN opens /staff/vendors. Resend sends receipts and
+ *   acceptance links. Neither is sent until that delivery is configured.
+ * - When Square is configured, accepting a paid vendor creates a Square
+ *   checkout link. A fee cannot be confirmed until payment is recorded.
  * - Event-day instructions live in vendorProgram.eventDay.
  * - contacts.sponsorshipUrl is an optional https inbox for sponsor inquiries.
  *
@@ -398,7 +399,7 @@ export const ticketSignup = {
   submitLabel: "Join the List",
   success: "You’re on the list. We’ll email you when tickets go on sale.",
   unconfigured:
-    "Ticket-release signup is not connected yet. Set EMAIL_WEBHOOK_URL to an https endpoint to receive list signups.",
+    "Ticket-release signup is not connected yet. Set RESEND_API_KEY and RESEND_FROM to send the announcement list.",
   invalidEmail: "Enter a valid email address.",
   failure: "We could not complete your signup. Please try again.",
 };

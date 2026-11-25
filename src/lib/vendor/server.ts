@@ -4,9 +4,12 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { env } from "../backend/env";
+import { resendConfigured, sendBackendEmail } from "../backend/mail";
+import { createVendorPaymentLink, squareConfigured } from "../backend/square";
+import { loadPrivateDatabase, savePrivateDatabase, supabaseConfigured } from "../backend/store";
 import { ticketSignup, vendorProgram } from "../../config/site";
 import { isPreview, sponsorshipInbox } from "../presentation";
 import {
@@ -44,6 +47,8 @@ export type VendorRecord = {
   feeRequired: boolean;
   feeLabel: string;
   checkoutUrl: string;
+  squarePaymentLinkId: string;
+  squareOrderId: string;
   confirmationDeadline: string;
   agreementAcceptedAt: string;
   paymentCompletedAt: string;
@@ -125,30 +130,8 @@ function locked<T>(task: () => Promise<T>) {
   return run;
 }
 
-let envLoaded = false;
-
-function loadEnvFile() {
-  if (envLoaded) return;
-  envLoaded = true;
-  try {
-    const file = readFileSync(join(process.cwd(), ".env"), "utf8");
-    for (const line of file.split("\n")) {
-      const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
-      if (!match || process.env[match[1]]) continue;
-      process.env[match[1]] = match[2].trim();
-    }
-  } catch {
-    // The server can also receive these values from its own environment.
-  }
-}
-
-function env(name: string) {
-  loadEnvFile();
-  return process.env[name]?.trim() ?? "";
-}
-
 export function emailConfigured() {
-  return /^https:\/\//i.test(env("EMAIL_WEBHOOK_URL"));
+  return resendConfigured() || /^https:\/\//i.test(env("EMAIL_WEBHOOK_URL"));
 }
 
 export function staffConfigured() {
@@ -184,6 +167,8 @@ function httpsUrl(value: string) {
 }
 
 async function signingSecret() {
+  const configured = env("SIGNING_SECRET");
+  if (configured.length >= 32) return configured;
   await mkdir(directory, { recursive: true });
   try {
     const existing = (await readFile(secretPath, "utf8")).trim();
@@ -228,6 +213,15 @@ function hashToken(token: string) {
 }
 
 async function readDatabase(): Promise<Database> {
+  if (supabaseConfigured()) {
+    const loaded = await loadPrivateDatabase();
+    return {
+      vendors: loaded.vendors.map(normalizeVendor),
+      sponsors: loaded.sponsors,
+      ticketList: loaded.ticketList,
+      tokens: loaded.tokens,
+    };
+  }
   try {
     const parsed = JSON.parse(await readFile(databasePath, "utf8")) as Database;
     return {
@@ -242,6 +236,10 @@ async function readDatabase(): Promise<Database> {
 }
 
 async function writeDatabase(database: Database) {
+  if (supabaseConfigured()) {
+    await savePrivateDatabase(database);
+    return;
+  }
   await mkdir(directory, { recursive: true });
   const temporary = `${databasePath}.${randomBytes(4).toString("hex")}.tmp`;
   await writeFile(temporary, JSON.stringify(database), { mode: 0o600 });
@@ -284,6 +282,8 @@ function blankVendor(
     feeRequired: false,
     feeLabel: "",
     checkoutUrl: "",
+    squarePaymentLinkId: "",
+    squareOrderId: "",
     confirmationDeadline: "",
     agreementAcceptedAt: "",
     paymentCompletedAt: "",
@@ -319,6 +319,8 @@ function normalizeVendor(item: VendorRecord): VendorRecord {
     ...item,
     specialtyGroup: item.specialtyGroup || "other",
     specialtyOther: item.specialtyOther || "",
+    squarePaymentLinkId: item.squarePaymentLinkId || "",
+    squareOrderId: item.squareOrderId || "",
     published: Boolean(item.published),
     publicName: item.publicName || "",
     publicSpecialty: item.publicSpecialty || "",
@@ -399,6 +401,7 @@ export function validateSponsor(form: FormData) {
 }
 
 async function deliver(payload: Record<string, string>) {
+  if (resendConfigured()) return sendBackendEmail(payload);
   const webhook = env("EMAIL_WEBHOOK_URL");
   if (!httpsUrl(webhook)) return false;
   try {
@@ -415,6 +418,19 @@ async function deliver(payload: Record<string, string>) {
 
 async function notifySponsor(record: SponsorRecord) {
   const inbox = sponsorshipInbox();
+  const recipient = inbox.startsWith("mailto:") ? inbox.slice("mailto:".length) : env("RESEND_INBOX");
+  if (resendConfigured() && recipient) {
+    return sendBackendEmail({
+      type: "sponsor-inquiry",
+      to: recipient,
+      id: record.id,
+      contactName: record.contactName,
+      organization: record.organization,
+      email: record.email,
+      interest: record.interest,
+      message: record.message,
+    });
+  }
   const target = httpsUrl(inbox) ? inbox : env("EMAIL_WEBHOOK_URL");
   if (!httpsUrl(target)) return false;
   try {
@@ -602,12 +618,26 @@ export async function acceptVendor(
   if (input.feeRequired && !input.feeLabel.trim()) {
     return { error: "Add the fee before accepting a paid participation. Nothing was sent." };
   }
-  if (input.checkoutUrl && !httpsUrl(input.checkoutUrl)) {
-    return { error: "Hosted checkout must be an https link. Nothing was sent." };
-  }
+  let checkoutUrl = input.checkoutUrl.trim();
+  let squarePaymentLinkId = "";
+  let squareOrderId = "";
   const existing = await getVendor(id);
   if (!existing || existing.status === "declined" || existing.status === "confirmed") {
     return { error: "That request cannot be accepted." };
+  }
+  if (input.feeRequired && squareConfigured()) {
+    const created = await createVendorPaymentLink({
+      vendorId: id,
+      businessName: existing.businessName,
+      feeLabel: input.feeLabel,
+      origin,
+    });
+    if (!created.ok) return { error: created.error };
+    checkoutUrl = created.url;
+    squarePaymentLinkId = created.id;
+    squareOrderId = created.orderId;
+  } else if (checkoutUrl && !httpsUrl(checkoutUrl)) {
+    return { error: "Hosted checkout must be an https link. Nothing was sent." };
   }
   const raw = await issueToken(id);
   let record: VendorRecord | undefined;
@@ -619,7 +649,9 @@ export async function acceptVendor(
     record.feeRequired = input.feeRequired;
     record.feeLabel = input.feeRequired ? input.feeLabel.trim() : "";
     record.confirmationDeadline = input.confirmationDeadline.trim();
-    record.checkoutUrl = input.checkoutUrl.trim();
+    record.checkoutUrl = checkoutUrl;
+    record.squarePaymentLinkId = squarePaymentLinkId;
+    record.squareOrderId = squareOrderId;
     record.agreementAcceptedAt = "";
     record.paymentCompletedAt = "";
     record.status = "accepted_pending";
@@ -782,6 +814,25 @@ export function publicVendor(record: VendorRecord) {
 }
 
 export type VendorView = ReturnType<typeof publicVendor>;
+
+export async function completeSquarePayment(input: { orderId: string; note: string }) {
+  if (!input.orderId && !input.note) return false;
+  return locked(async () => {
+    const database = await readDatabase();
+    const record = database.vendors.find(
+      (item) =>
+        (input.orderId && item.squareOrderId === input.orderId) ||
+        (input.note && item.id === input.note),
+    );
+    if (!record || !record.feeRequired) return false;
+    if (!record.paymentCompletedAt) {
+      record.paymentCompletedAt = new Date().toISOString();
+      reconcile(record);
+      await writeDatabase(database);
+    }
+    return true;
+  });
+}
 
 export async function recordPayment(id: string) {
   return updateVendor(id, (record) => {

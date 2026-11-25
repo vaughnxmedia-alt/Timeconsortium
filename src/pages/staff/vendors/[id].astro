@@ -3,6 +3,7 @@ export const prerender = false;
 
 import Base from "../../../layouts/Base.astro";
 import { vendor } from "../../../config/site";
+import { squareConfigured } from "../../../lib/backend/square";
 import {
   emailConfigured,
   getVendor,
@@ -116,6 +117,11 @@ if (allowed && !record) Astro.response.status = 404;
                     <div class="field">
                       <label for="checkout">Hosted checkout URL</label>
                       <input id="checkout" name="checkoutUrl" type="url" value={record.checkoutUrl} placeholder="https://" maxlength="400" />
+                      {
+                        squareConfigured() && (
+                          <p>Square is connected. A paid acceptance creates the checkout link from the fee.</p>
+                        )
+                      }
                     </div>
                     <button class="button" type="submit">Accept and create access link</button>
                   </form>

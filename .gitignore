@@ -5,4 +5,5 @@ dist/
 ._*
 tmp-crops/
 .env
+.vercel/
 data/

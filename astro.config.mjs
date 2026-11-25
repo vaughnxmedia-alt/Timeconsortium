@@ -1,11 +1,11 @@
 import { defineConfig } from "astro/config";
-import node from "@astrojs/node";
+import vercel from "@astrojs/vercel";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
   site: "https://www.thomasconsortium.com",
   output: "static",
-  adapter: node({ mode: "standalone" }),
+  adapter: vercel(),
   trailingSlash: "never",
   integrations: [
     sitemap({
