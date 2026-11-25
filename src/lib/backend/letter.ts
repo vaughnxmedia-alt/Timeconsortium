@@ -63,7 +63,9 @@ export function renderLetter(letter: Letter) {
     <td align="center" style="padding:28px 16px;">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;margin:0 auto;border:1px solid #270716;">
         <tr>
-          <td bgcolor="#270716" align="center" style="background:#270716;padding:36px 32px 32px;text-align:center;">
+          <td bgcolor="#270716" align="center" style="background:#270716;padding:0;text-align:center;">
+            <p style="margin:0;padding:16px 22px 0;text-align:right;font-family:${sans};font-size:11px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.38);">Discover</p>
+            <div style="padding:10px 32px 32px;">
             <a href="${origin}/" style="text-decoration:none;">
               <img src="${logo}" width="220" height="66" alt="${escapeHtml(site.logo.alt)}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;">
             </a>
@@ -71,6 +73,7 @@ export function renderLetter(letter: Letter) {
             <p style="margin:18px 0 0;font-family:${serif};font-size:42px;line-height:0.95;font-weight:500;color:#f4ecdf;">${escapeHtml(event.name)}</p>
             <p style="margin:16px 0 0;font-family:${sans};font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#c4a15a;">${escapeHtml(event.dateLabel)}</p>
             <p style="margin:10px 0 0;font-family:${sans};font-size:15px;line-height:1.45;color:#f4ecdf;">${escapeHtml(event.venue)}<br>${escapeHtml(event.city)}</p>
+            </div>
           </td>
         </tr>
         <tr>

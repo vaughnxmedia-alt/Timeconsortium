@@ -21,6 +21,11 @@ const image = new URL(site.shareImage, site.url).href;
 <!doctype html>
 <html lang="en">
   <head>
+    <script is:inline>
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.documentElement.classList.add("js-reveal");
+      }
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
@@ -58,9 +63,27 @@ const image = new URL(site.shareImage, site.url).href;
       const nav = document.querySelector("#site-nav");
       const desktop = window.matchMedia("(min-width: 980px)");
 
+      const eventsButton = nav?.querySelector(".nav-label");
+      const eventsGroup = eventsButton?.closest(".nav-group");
+
+      const collapseEvents = () => {
+        eventsGroup?.classList.remove("is-open");
+        if (eventsButton instanceof HTMLButtonElement) {
+          eventsButton.setAttribute("aria-expanded", "false");
+        }
+      };
+
       const closeNav = () => {
         if (navToggle instanceof HTMLInputElement) navToggle.checked = false;
+        collapseEvents();
       };
+
+      eventsButton?.addEventListener("click", () => {
+        if (desktop.matches || !(eventsButton instanceof HTMLButtonElement)) return;
+        const open = !eventsGroup?.classList.contains("is-open");
+        eventsGroup?.classList.toggle("is-open", open);
+        eventsButton.setAttribute("aria-expanded", open ? "true" : "false");
+      });
 
       nav?.addEventListener("click", (event) => {
         const target = event.target;
@@ -80,6 +103,83 @@ const image = new URL(site.shareImage, site.url).href;
       desktop.addEventListener("change", () => {
         if (desktop.matches) closeNav();
       });
+    </script>
+    <script is:inline>
+      if (document.documentElement.classList.contains("js-reveal")) {
+        const selector = [
+          ".site-header",
+          "main .page-mast",
+          "main .identity",
+          "main .evening",
+          "main .mast",
+          "main .lede",
+          "main .editorial > div",
+          "main .editorial-media figure",
+          "main .itinerary-note",
+          "main .itinerary-item",
+          "main .itinerary-figure",
+          "main .itinerary-cta",
+          "main .concepts li",
+          "main .recap",
+          "main .lead-decor",
+          "main .home-follow",
+          "main .about-intro",
+          "main .featured",
+          "main .story-hero",
+          "main .story-head",
+          "main .story-spread",
+          "main .story-back",
+          "main .vendor-hub-lede",
+          "main .vendor-card",
+          "main section",
+          "main article",
+          "footer.footer",
+        ].join(",");
+        const all = [...document.querySelectorAll(selector)].filter((element) => {
+          const box = element.getBoundingClientRect();
+          return box.width > 0 && box.height > 8;
+        });
+        const nodes = all.filter(
+          (element) => !all.some((other) => other !== element && element.contains(other)),
+        );
+        for (const parent of all) {
+          if (nodes.includes(parent)) continue;
+          if (!nodes.some((node) => parent.contains(node))) continue;
+          for (const child of parent.children) {
+            if (!(child instanceof HTMLElement)) continue;
+            const holdsNode = nodes.some((node) => child === node || child.contains(node));
+            if (holdsNode) continue;
+            if (!child.matches("h2, h3, p, .eyebrow")) continue;
+            if (child.getBoundingClientRect().height < 8) continue;
+            nodes.push(child);
+          }
+        }
+
+        let intro = 0;
+        const viewBottom = window.innerHeight * 0.92;
+        for (const element of nodes) {
+          element.classList.add("reveal");
+          if (element.getBoundingClientRect().top < viewBottom) {
+            element.style.transitionDelay = `${Math.min(intro, 7) * 120}ms`;
+            intro += 1;
+          }
+        }
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add("is-in");
+              observer.unobserve(entry.target);
+            }
+          },
+          { rootMargin: "0px 0px -6% 0px", threshold: 0.16 },
+        );
+
+        requestAnimationFrame(() => {
+          for (const element of nodes) observer.observe(element);
+        });
+      }
     </script>
   </body>
 </html>

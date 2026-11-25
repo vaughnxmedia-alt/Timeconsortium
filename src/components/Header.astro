@@ -1,5 +1,5 @@
 ---
-import { aboutPage, eveningPage, site, vendor } from "../config/site";
+import { aboutPage, event, site, vendor } from "../config/site";
 import { ticketView } from "../lib/presentation";
 
 const path = Astro.url.pathname.replace(/\/$/, "") || "/";
@@ -10,7 +10,7 @@ const vendorCurrent =
   path === "/vendor-hub" || path.startsWith("/vendor-hub/") ? "page" : undefined;
 const aboutCurrent =
   path === aboutPage.path || path.startsWith("/discover/") ? "page" : undefined;
-const eveningCurrent = path === eveningPage.path ? "page" : undefined;
+const eventCurrent = path === event.path ? "page" : undefined;
 ---
 
 <header class="site-header">
@@ -31,7 +31,16 @@ const eveningCurrent = path === eveningPage.path ? "page" : undefined;
     <nav id="site-nav" class="nav" data-nav aria-label="Primary">
       <ul>
         <li><a href={aboutPage.path} aria-current={aboutCurrent}>{aboutPage.label}</a></li>
-        <li><a href={eveningPage.path} aria-current={eveningCurrent}>{eveningPage.navLabel}</a></li>
+        <li class:list={["nav-group", { "is-current": eventCurrent }]}>
+          <button type="button" class="nav-label" aria-expanded="false" aria-controls="events-menu">
+            Events
+          </button>
+          <ul id="events-menu" class="nav-sub">
+            <li>
+              <a href={event.path} aria-current={eventCurrent}>{event.name}</a>
+            </li>
+          </ul>
+        </li>
         <li><a href="/vendor-hub" aria-current={vendorCurrent}>{vendor.navLabel}</a></li>
         <li><a href={stayHref}>Plan Your Stay</a></li>
         <li>

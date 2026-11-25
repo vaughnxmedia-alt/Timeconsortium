@@ -143,9 +143,9 @@ export const event = {
   ] as Concept[],
 };
 
-/** Nav “The Evening” — guest itinerary page, separate from the homepage teaser. */
+/** Guest itinerary, shown on the Reverie & Ember page. /the-evening redirects there. */
 export const eveningPage = {
-  path: "/the-evening",
+  path: "/reverie-and-ember#itinerary",
   navLabel: "The Evening",
   title: "The Evening",
   intro:

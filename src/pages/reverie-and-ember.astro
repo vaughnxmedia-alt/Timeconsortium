@@ -80,13 +80,44 @@ const recapImages = event.recap.images.filter((item) => item.src.trim());
         }
       </div>
       <div>
-        <p class="eyebrow">{eveningPage.navLabel}</p>
-        <h2>{eveningPage.homeTeaserTitle}</h2>
+        <p class="eyebrow">{event.name}</p>
+        <h2 id="itinerary-title">{eveningPage.title}</h2>
         <hr class="rule rule-ink" />
-        <p>{eveningPage.homeTeaser}</p>
-        <p>
-          <a class="text-link" href={eveningPage.path}>{eveningPage.homeTeaserLink}</a>
-        </p>
+        <p>{eveningPage.intro}</p>
+      </div>
+    </section>
+
+    <section class="itinerary" id="itinerary" aria-labelledby="itinerary-title">
+      <p class="itinerary-note">{eveningPage.note}</p>
+      <ol class="itinerary-list">
+        {
+          eveningPage.itinerary.map((item) => (
+            <li class="itinerary-item">
+              <p class="itinerary-time">{item.time}</p>
+              <div class="itinerary-copy">
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+      {
+        images.evening.src && (
+          <figure class="itinerary-figure">
+            <img
+              src={images.evening.src}
+              alt={images.evening.alt}
+              width={images.evening.width}
+              height={images.evening.height}
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        )
+      }
+      <div class="itinerary-cta">
+        <TicketCta />
       </div>
     </section>
 
