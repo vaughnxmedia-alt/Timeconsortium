@@ -2,118 +2,86 @@
 export const prerender = false;
 
 import Base from "../../../layouts/Base.astro";
-import { emailConfigured, isStaff, listQueue, staffConfigured, STATUS_LABEL } from "../../../lib/vendor/server";
+import EventBar from "../../../components/EventBar.astro";
+import HqSeries from "../../../components/HqSeries.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { isStaff } from "../../../lib/backend/staff";
+import { weekOf, weekStarts } from "../../../lib/backend/weeks.mjs";
+import { emailConfigured, listQueue, STATUS_LABEL } from "../../../lib/vendor/server";
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
 
-const configured = staffConfigured();
-const allowed = configured && (await isStaff(Astro.cookies));
-const queue = allowed ? await listQueue() : { vendors: [], sponsors: [] };
-const loginError = Astro.url.searchParams.get("error") === "1";
-const interestLabel = {
-  financial: "Financial support",
-  "in-kind": "In-kind contributions",
-  discussing: "Discussing options",
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/vendors");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+const queue = await listQueue();
+const weeks = weekStarts();
+const applications = weeks.map(
+  (week) => queue.vendors.filter((item) => weekOf(item.createdAt) === week).length,
+);
+const counts = {
+  submitted: queue.vendors.filter((item) => item.status === "submitted").length,
+  under_review: queue.vendors.filter((item) => item.status === "under_review").length,
+  confirmed: queue.vendors.filter((item) => item.status === "confirmed").length,
+  declined: queue.vendors.filter((item) => item.status === "declined").length,
 };
 ---
 
 <Base
+  hq
   title="Vendor review | Timeless Consortium"
   description="Private review queue for vendor requests and sponsorship inquiries."
   path="/staff/vendors"
   robots="noindex, nofollow"
 >
-  <header class="page-mast">
-    <div class="page-mast-inner">
-      <p class="eyebrow">Staff</p>
-      <h1>Vendor review</h1>
-      {
-        !emailConfigured() && allowed && (
-          <p class="preview-note">
-            Email delivery is not configured. Set RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE before receipts or access links are emailed.
-          </p>
-        )
-      }
-    </div>
-  </header>
-  <div class="page-body">
-    <div class="page-body-inner">
-      {
-        !configured && (
-          <p class="preview-note">
-            Staff review is unavailable until STAFF_ACCESS_TOKEN is set on the server. Requests can still be saved, and this queue stays closed.
-          </p>
-        )
-      }
-      {
-        configured && !allowed && (
-          <form class="form" method="post" action="/api/staff-login">
-            {loginError && <p class="form-error" role="alert">That access token was not accepted.</p>}
-            <div class="field">
-              <label for="staff-token">Staff access token</label>
-              <input id="staff-token" name="token" type="password" autocomplete="current-password" required />
-            </div>
-            <button class="button" type="submit">Open the queue</button>
-          </form>
-        )
-      }
-      {
-        allowed && (
-          <>
-            <p>
-              <a href="/staff/subscribers">Notify list</a>
-            </p>
-            <form method="post" action="/api/staff-logout">
-              <button class="text-link" type="submit">Log out</button>
-            </form>
-            <section>
-              <h2>Requests</h2>
-              {
-                queue.vendors.length === 0 ? (
-                  <p>No vendor requests have been saved.</p>
-                ) : (
-                  <ul class="review-list">
-                    {queue.vendors.map((item) => (
-                      <li class="review-card">
-                        <h3>{item.businessName}</h3>
-                        <p>
-                          {item.contactName} · {item.email}
-                        </p>
-                        <p>{STATUS_LABEL[item.status]}</p>
-                        <p>
-                          <a href={`/staff/vendors/${item.id}`}>Open request</a>
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              }
-            </section>
-            <section>
-              <h2>Sponsor inquiries</h2>
-              {
-                queue.sponsors.length === 0 ? (
-                  <p>No sponsorship inquiries have been saved.</p>
-                ) : (
-                  <ul class="review-list">
-                    {queue.sponsors.map((item) => (
-                      <li class="review-card">
-                        <h3>{item.organization}</h3>
-                        <p>
-                          {item.contactName} · {item.email}
-                        </p>
-                        <p>{interestLabel[item.interest]}</p>
-                        {item.message && <p>{item.message}</p>}
-                        <p>{item.notified ? "Sent to the configured inbox." : "Saved in this queue. No inbox delivery was made."}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              }
-            </section>
-          </>
-        )
-      }
-    </div>
-  </div>
+  <HqShell member={member} path="/staff/vendors">
+    <EventBar current="vendors" />
+    <h1 class="hq-title">Vendors</h1>
+    {
+      !emailConfigured() && (
+        <p class="preview-note">
+          Email delivery is not configured. Set RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE before receipts or access links are emailed.
+        </p>
+      )
+    }
+    <HqSeries
+      title="Applications"
+      weeks={weeks}
+      values={applications}
+      series="Applications"
+      empty="No vendor applications have been recorded yet."
+    />
+    <ul class="event-facts">
+      <li>{counts.submitted} submitted</li>
+      <li>{counts.under_review} under review</li>
+      <li>{counts.confirmed} confirmed</li>
+      <li>{counts.declined} declined</li>
+    </ul>
+      <section>
+        <h2>Requests</h2>
+        {
+          queue.vendors.length === 0 ? (
+            <p>No vendor requests have been saved.</p>
+          ) : (
+            <ul class="review-list">
+              {queue.vendors.map((item) => (
+                <li class="review-card">
+                  <h3>{item.businessName}</h3>
+                  <p>
+                    {item.firstName || item.contactName} {item.lastName} · {item.email}
+                  </p>
+                  <p>{item.phone || "No phone"}{item.portfolio ? ` · ${item.portfolio}` : ""}</p>
+                  <p>{STATUS_LABEL[item.status]}</p>
+                  {item.staffNotes && <p>{item.staffNotes}</p>}
+                  <p>
+                    <a href={`/staff/vendors/${item.id}`}>Open request</a>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+  </HqShell>
 </Base>

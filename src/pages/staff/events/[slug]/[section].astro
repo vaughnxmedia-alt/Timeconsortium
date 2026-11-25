@@ -1,0 +1,61 @@
+---
+export const prerender = false;
+
+import Base from "../../../../layouts/Base.astro";
+import EventBar from "../../../../components/EventBar.astro";
+import HqShell from "../../../../components/HqShell.astro";
+import { getDeskEvent } from "../../../../lib/backend/events";
+import { isStaff } from "../../../../lib/backend/staff";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const sections = {
+  tickets: { label: "Tickets", empty: "No ticket orders have been recorded for this event." },
+  waitlist: { label: "Waitlist", empty: "No one has joined the waitlist for this event." },
+  vendors: { label: "Vendors", empty: "No vendor applications have been recorded for this event." },
+  partners: { label: "Partners", empty: "No partner inquiries have been recorded for this event." },
+  analytics: { label: "Analytics", empty: "Nothing has been recorded for this event." },
+} as const;
+
+const member = await isStaff(Astro.cookies);
+const slug = Astro.params.slug ?? "";
+const section = Astro.params.section ?? "";
+const known = section in sections ? sections[section as keyof typeof sections] : null;
+if (!member) return Astro.redirect(`/staff?next=/staff/events/${slug}/${section}`);
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+if (slug === "reverie-and-ember" && known) {
+  const canonical = {
+    tickets: "/staff/tickets",
+    waitlist: "/staff/subscribers",
+    vendors: "/staff/vendors",
+    partners: "/staff/partners",
+    analytics: "/staff/analytics",
+  } as const;
+  return Astro.redirect(canonical[section as keyof typeof canonical]);
+}
+const occasion = known ? await getDeskEvent(slug) : null;
+if (!occasion || occasion.builtin) Astro.response.status = 404;
+---
+
+<Base
+  hq
+  title={occasion && known ? `${known.label} | ${occasion.name}` : "Event | Timeless Consortium"}
+  description="Private event desk."
+  path={`/staff/events/${slug}/${section}`}
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path={`/staff/events/${slug}/${section}`}>
+    {
+      occasion && known ? (
+        <>
+          <EventBar event={occasion} current={section as keyof typeof sections} />
+          <h1 class="hq-title">{known.label}</h1>
+          <p>{known.empty}</p>
+        </>
+      ) : (
+        <p>That event is not on the desk.</p>
+      )
+    }
+  </HqShell>
+</Base>

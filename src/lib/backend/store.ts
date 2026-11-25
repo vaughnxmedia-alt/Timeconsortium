@@ -38,6 +38,9 @@ function vendorFromRow(row: Record<string, unknown>): VendorRecord {
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
     contactName: text(row.contact_name),
+    firstName: text(row.first_name),
+    lastName: text(row.last_name),
+    phone: text(row.phone),
     businessName: text(row.business_name),
     specialty: text(row.specialty),
     specialtyGroup: text(row.specialty_group),
@@ -76,6 +79,9 @@ function vendorToRow(record: VendorRecord) {
     created_at: record.createdAt,
     updated_at: record.updatedAt,
     contact_name: record.contactName,
+    first_name: record.firstName || "",
+    last_name: record.lastName || "",
+    phone: record.phone || "",
     business_name: record.businessName,
     specialty: record.specialty,
     specialty_group: record.specialtyGroup,
@@ -149,11 +155,19 @@ export async function loadPrivateDatabase(): Promise<DatabaseShape> {
     sponsors: sponsors.map((row) => ({
       id: text(row.id),
       createdAt: text(row.created_at),
+      updatedAt: text(row.updated_at) || text(row.created_at),
       contactName: text(row.contact_name),
+      firstName: text(row.first_name),
+      lastName: text(row.last_name),
+      phone: text(row.phone),
       organization: text(row.organization),
+      eventSlug: text(row.event_slug),
       email: text(row.email),
       interest: text(row.interest) as SponsorRecord["interest"],
       message: text(row.message),
+      notes: text(row.notes),
+      status: (text(row.status) || "new") as SponsorRecord["status"],
+      source: (text(row.source) === "staff" ? "staff" : "website") as SponsorRecord["source"],
       notified: Boolean(row.notified),
     })),
     ticketList: ticketList.map((row) => ({
@@ -233,24 +247,65 @@ export async function insertNotice(notice: NoticeRecord) {
   if (recipientError) throw new Error(recipientError.message);
 }
 
+async function sponsorsHavePipeline(client: SupabaseClient) {
+  const { error } = await client.from("sponsors").select("status").limit(1);
+  return !error;
+}
+
+async function columnReady(client: SupabaseClient, table: string, column: string) {
+  const { error } = await client.from(table).select(column).limit(1);
+  return !error;
+}
+
 export async function savePrivateDatabase(database: DatabaseShape) {
   const client = admin();
   if (!client) return;
-  await replaceRows(client, "vendors", "id", database.vendors.map(vendorToRow));
+  const pipeline = await sponsorsHavePipeline(client);
+  const vendorNames = await columnReady(client, "vendors", "first_name");
+  const sponsorNames = await columnReady(client, "sponsors", "first_name");
+  await replaceRows(
+    client,
+    "vendors",
+    "id",
+    database.vendors.map((record) => {
+      const row = vendorToRow(record);
+      if (!vendorNames) {
+        delete row.first_name;
+        delete row.last_name;
+        delete row.phone;
+      }
+      return row;
+    }),
+  );
   await replaceRows(
     client,
     "sponsors",
     "id",
-    database.sponsors.map((record) => ({
-      id: record.id,
-      created_at: record.createdAt,
-      contact_name: record.contactName,
-      organization: record.organization,
-      email: record.email,
-      interest: record.interest,
-      message: record.message,
-      notified: record.notified,
-    })),
+    database.sponsors.map((record) => {
+      const row: Record<string, unknown> = {
+        id: record.id,
+        created_at: record.createdAt,
+        contact_name: record.contactName,
+        organization: record.organization,
+        email: record.email,
+        interest: record.interest,
+        message: record.message,
+        notified: record.notified,
+      };
+      if (pipeline) {
+        row.status = record.status || "new";
+        row.notes = record.notes || "";
+        row.source = record.source || "website";
+        row.updated_at = record.updatedAt || record.createdAt;
+      }
+      if (sponsorNames) {
+        row.first_name = record.firstName || "";
+        row.last_name = record.lastName || "";
+        row.phone = record.phone || "";
+        row.event_slug = record.eventSlug || "";
+      }
+      return row;
+    }),
   );
   await replaceRows(
     client,

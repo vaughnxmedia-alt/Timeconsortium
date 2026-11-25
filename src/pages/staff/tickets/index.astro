@@ -1,0 +1,148 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import EventBar from "../../../components/EventBar.astro";
+import HqSeries from "../../../components/HqSeries.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { listTicketOrders, ticketSummary } from "../../../lib/backend/orders";
+import { squareConfigured } from "../../../lib/backend/square";
+import { isStaff } from "../../../lib/backend/staff";
+import { weekOf, weekStarts } from "../../../lib/backend/weeks.mjs";
+import { takeError } from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/tickets");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+
+const orders = await listTicketOrders();
+const summary = ticketSummary(orders);
+const error = takeError(Astro.cookies);
+const squareReady = squareConfigured();
+const weeks = weekStarts();
+const sold = weeks.map((week) =>
+  orders
+    .filter((order) => order.paymentStatus === "paid" && weekOf(order.createdAt) === week)
+    .reduce((sum, order) => sum + order.quantity, 0),
+);
+
+function money(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
+---
+
+<Base
+  hq
+  title="Tickets | Timeless Consortium"
+  description="Private ticket orders."
+  path="/staff/tickets"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/tickets">
+    <EventBar current="tickets" />
+    <h1 class="hq-title">Tickets</h1>
+      {error && <p class="form-error" role="alert">{error}</p>}
+      {
+        squareReady ? (
+          <p>Square ticket payments are included below and labeled Square.</p>
+        ) : (
+          <p class="preview-note">Square is not connected. Orders entered here are labeled manual.</p>
+        )
+      }
+      <HqSeries
+        title="Tickets sold"
+        weeks={weeks}
+        values={sold}
+        series="Paid tickets"
+        empty="No paid tickets have been recorded yet."
+      />
+      <section>
+        <h2>Orders</h2>
+        <p>
+          {summary.ticketsSold} tickets sold · {money(summary.revenueCents)} recorded
+        </p>
+        <p>Square {summary.squareTickets} · {money(summary.squareCents)}. Manual {summary.manualTickets} · {money(summary.manualCents)}.</p>
+        {
+          orders.length === 0 ? (
+            <p>No ticket orders have been recorded.</p>
+          ) : (
+            <table class="hq-table">
+              <thead>
+                <tr>
+                  <th>First</th>
+                  <th>Last</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Qty</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr>
+                    <td>{order.firstName || "—"}</td>
+                    <td>{order.lastName || "—"}</td>
+                    <td>{order.email || "—"}</td>
+                    <td>{order.phone || "—"}</td>
+                    <td>{order.quantity}</td>
+                    <td>{money(order.amountCents)}</td>
+                    <td>{order.paymentStatus}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        }
+      </section>
+      <section>
+        <h2>Add a manual order</h2>
+        <form class="form" method="post" action="/api/staff-orders">
+          <div class="field">
+            <label for="guest-first">First name</label>
+            <input id="guest-first" name="firstName" type="text" autocomplete="given-name" maxlength="60" required />
+          </div>
+          <div class="field">
+            <label for="guest-last">Last name</label>
+            <input id="guest-last" name="lastName" type="text" autocomplete="family-name" maxlength="60" required />
+          </div>
+          <div class="field">
+            <label for="guest-email">Email</label>
+            <input id="guest-email" name="email" type="email" maxlength="200" required />
+          </div>
+          <div class="field">
+            <label for="guest-phone">Phone <span class="optional">Optional</span></label>
+            <input id="guest-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" />
+          </div>
+          <div class="field">
+            <label for="guest-quantity">Quantity</label>
+            <input id="guest-quantity" name="quantity" type="number" min="1" max="100" value="1" required />
+          </div>
+          <div class="field">
+            <label for="guest-amount">Amount</label>
+            <input id="guest-amount" name="amount" type="text" inputmode="decimal" placeholder="0.00" required />
+          </div>
+          <div class="field">
+            <label for="guest-status">Payment status</label>
+            <select id="guest-status" name="paymentStatus">
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="guest-reference">Order reference</label>
+            <input id="guest-reference" name="orderReference" type="text" maxlength="80" required />
+          </div>
+          <div class="field">
+            <label for="guest-notes">Notes <span class="optional">Optional</span></label>
+            <textarea id="guest-notes" name="notes" maxlength="800"></textarea>
+          </div>
+          <button class="button" type="submit">Save manual order</button>
+        </form>
+      </section>
+  </HqShell>
+</Base>

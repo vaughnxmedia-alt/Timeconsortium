@@ -11,9 +11,10 @@ interface Props {
   path: string;
   eventSchema?: boolean;
   robots?: string;
+  hq?: boolean;
 }
 
-const { title, description, path, eventSchema = false, robots } = Astro.props;
+const { title, description, path, eventSchema = false, robots, hq = false } = Astro.props;
 const canonical = new URL(path, site.url).href;
 const image = new URL(site.shareImage, site.url).href;
 ---
@@ -51,13 +52,13 @@ const image = new URL(site.shareImage, site.url).href;
     <meta name="twitter:image:alt" content={site.shareImageAlt} />
     {eventSchema && <EventSchema />}
   </head>
-  <body>
+  <body class={hq ? "hq-body" : undefined}>
     <a class="skip" href="#main">Skip to content</a>
-    <Header />
+    {!hq && <Header />}
     <main id="main">
       <slot />
     </main>
-    <Footer />
+    {!hq && <Footer />}
     <script>
       const navToggle = document.querySelector("#nav-toggle");
       const nav = document.querySelector("#site-nav");

@@ -1,0 +1,65 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { listDeskEvents } from "../../../lib/backend/events";
+import { isStaff } from "../../../lib/backend/staff";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/events");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+const events = await listDeskEvents();
+const error = Astro.url.searchParams.get("error") ?? "";
+---
+
+<Base
+  hq
+  title="Events | Timeless Consortium"
+  description="Private events on the Timeless Consortium desk."
+  path="/staff/events"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/events">
+    <input id="add-event" class="add-event-toggle" type="checkbox" checked={Boolean(error)} />
+    <div class="events-head">
+      <h1 class="hq-title">Events</h1>
+      <label class="hq-invite" for="add-event">Add event</label>
+    </div>
+    <ul class="event-list">
+      {
+        events.map((item) => (
+          <li>
+            <a href={`/staff/events/${item.slug}`}>
+              <h2>{item.name}</h2>
+              <p>
+                {item.dateLabel} · {item.venue}
+              </p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <form class="form add-event-form" method="post" action="/api/staff-events">
+      <h2>Add event</h2>
+      <p>This adds the event to the desk. It does not publish a public page.</p>
+      {error && <p class="form-error" role="alert">{error}</p>}
+      <div class="field">
+        <label for="event-name">Name</label>
+        <input id="event-name" name="name" type="text" maxlength="80" required />
+      </div>
+      <div class="field">
+        <label for="event-date">Date</label>
+        <input id="event-date" name="date" type="date" required />
+      </div>
+      <div class="field">
+        <label for="event-venue">Venue</label>
+        <input id="event-venue" name="venue" type="text" maxlength="120" required />
+      </div>
+      <button class="button" type="submit">Save event</button>
+    </form>
+  </HqShell>
+</Base>

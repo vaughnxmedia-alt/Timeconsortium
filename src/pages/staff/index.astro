@@ -1,0 +1,289 @@
+---
+export const prerender = false;
+
+import Base from "../../layouts/Base.astro";
+import HqShell from "../../components/HqShell.astro";
+import { event } from "../../config/site";
+import { listTicketOrders, ticketSummary } from "../../lib/backend/orders";
+import { squareConfigured } from "../../lib/backend/square";
+import { isStaff, ownerPasswordNeeded } from "../../lib/backend/staff";
+import { listQueue, listSubscribers } from "../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (member && !member.passwordSet) return Astro.redirect("/staff/password");
+const setupEmail = member ? "" : await ownerPasswordNeeded();
+const sent = Astro.url.searchParams.get("sent") === "1";
+const error = Astro.url.searchParams.get("error") ?? "";
+
+const people = member ? await listSubscribers() : [];
+const orders = member ? await listTicketOrders() : [];
+const summary = ticketSummary(orders);
+const queue = member ? await listQueue() : { vendors: [], sponsors: [] };
+const confirmedVendors = queue.vendors.filter((item) => item.status === "confirmed").length;
+const vendorReview = queue.vendors.filter(
+  (item) => item.status === "submitted" || item.status === "under_review",
+).length;
+const confirmedPartners = queue.sponsors.filter((item) => item.status === "confirmed").length;
+const partnerFollow = queue.sponsors.filter(
+  (item) => item.status === "new" || item.status === "in_conversation",
+).length;
+const unpaidOrders = orders.filter((item) => item.paymentStatus === "unpaid").length;
+
+function monday(value: string | Date) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const day = date.getDay();
+  date.setDate(date.getDate() - ((day + 6) % 7));
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+const end = monday(new Date()) ?? Date.now();
+const weeks = Array.from({ length: 8 }, (_, index) => end - (7 - index) * 7 * 24 * 60 * 60 * 1000);
+const sales = weeks.map((week) =>
+  orders
+    .filter((item) => item.paymentStatus === "paid" && monday(item.createdAt) === week)
+    .reduce((sum, item) => sum + item.quantity, 0),
+);
+const waitlist = weeks.map(
+  (week) => people.filter((item) => monday(item.createdAt) === week).length,
+);
+const peak = Math.max(1, ...sales, ...waitlist);
+const hasActivity = sales.some((value) => value > 0) || waitlist.some((value) => value > 0);
+const chartWidth = 640;
+const chartHeight = 220;
+const chartPad = 28;
+const point = (values: number[], index: number) => {
+  const x = chartPad + (index * (chartWidth - chartPad * 2)) / Math.max(values.length - 1, 1);
+  const y = chartHeight - chartPad - (values[index] / peak) * (chartHeight - chartPad * 2);
+  return `${x},${y}`;
+};
+const salesLine = sales.map((_, index) => point(sales, index)).join(" ");
+const waitlistLine = waitlist.map((_, index) => point(waitlist, index)).join(" ");
+const weekLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" });
+const activityWhen = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Chicago",
+});
+
+const activity = [
+  ...queue.vendors.map((item) => ({
+    at: item.updatedAt || item.createdAt,
+    text: `${item.businessName} applied to exhibit`,
+    href: `/staff/vendors/${item.id}`,
+  })),
+  ...queue.sponsors.map((item) => ({
+    at: item.updatedAt || item.createdAt,
+    text: `${item.organization} sent a partnership inquiry`,
+    href: "/staff/partners",
+  })),
+  ...orders.map((item) => ({
+    at: item.createdAt,
+    text:
+      item.paymentStatus === "paid"
+        ? `Ticket order ${item.orderReference} for ${item.quantity} was paid`
+        : `Ticket order ${item.orderReference} for ${item.quantity} is ${item.paymentStatus}`,
+    href: "/staff/tickets",
+  })),
+  ...people.map((item) => ({
+    at: item.createdAt,
+    text: `${item.email} joined the waitlist`,
+    href: "/staff/tickets",
+  })),
+]
+  .filter((item) => !Number.isNaN(Date.parse(item.at)))
+  .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+  .slice(0, 8);
+
+const occasion = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "America/Chicago",
+}).format(new Date(`${event.dateISO}T12:00:00`));
+---
+
+<Base
+  hq={Boolean(member)}
+  title={setupEmail ? "Choose a password | Timeless Consortium" : "HQ | Timeless Consortium"}
+  description="Private desk for the Timeless Consortium team."
+  path="/staff"
+  robots="noindex, nofollow"
+>
+  {
+    member ? (
+      <HqShell member={member} path="/staff">
+        <div class="hq-heading">
+          <div>
+            <div class="hq-tabs" role="tablist" aria-label="HQ">
+              <button type="button" data-hq-tab="overview" aria-selected="true">Overview</button>
+              <button type="button" data-hq-tab="attention" aria-selected="false">Needs attention</button>
+              <button type="button" data-hq-tab="activity" aria-selected="false">Recent activity</button>
+            </div>
+            <h1>{event.name}</h1>
+            <p>{occasion} · {event.venue}</p>
+          </div>
+          {member.role === "owner" && <a class="hq-invite" href="/staff/team">Invite team member</a>}
+        </div>
+        <div class="hq-stats">
+          <article>
+            <p>Tickets sold</p>
+            <strong>{summary.ticketsSold}</strong>
+            <span>{squareConfigured() ? "Paid Square and manual orders" : "Paid orders already recorded. Square is not connected."}</span>
+          </article>
+          <article>
+            <p>Waitlist</p>
+            <strong>{people.length}</strong>
+            <span>Signups, not purchases</span>
+          </article>
+          <article>
+            <p>Vendors confirmed</p>
+            <strong>{confirmedVendors}</strong>
+          </article>
+          <article>
+            <p>Partners confirmed</p>
+            <strong>{confirmedPartners}</strong>
+          </article>
+        </div>
+        <div class="hq-split">
+          <section class="hq-panel" data-hq-panel="attention">
+            <h2>Needs attention</h2>
+            <div class="hq-row">
+              <p>Vendor applications</p>
+              <strong class={vendorReview ? "is-due" : undefined}>{vendorReview} to review</strong>
+              <a href="/staff/vendors">Review</a>
+            </div>
+            <div class="hq-row">
+              <p>Partner inquiries</p>
+              <strong class={partnerFollow ? "is-due" : undefined}>{partnerFollow} to follow up</strong>
+              <a href="/staff/partners">Follow up</a>
+            </div>
+            <div class="hq-row">
+              <p>Ticket orders</p>
+              <strong class={unpaidOrders ? "is-due" : undefined}>{unpaidOrders} pending</strong>
+              <a href="/staff/tickets">View orders</a>
+            </div>
+          </section>
+          <section class="hq-panel" data-hq-panel="chart">
+            <h2>Ticket activity</h2>
+            {
+              hasActivity ? (
+                <>
+                  <p class="hq-legend"><span class="is-sales">Sales</span><span class="is-wait">Waitlist</span></p>
+                  <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="Paid tickets and waitlist signups by week">
+                    {[0, 0.25, 0.5, 0.75, 1].map((step) => {
+                      const y = chartHeight - chartPad - step * (chartHeight - chartPad * 2);
+                      return <line x1={chartPad} x2={chartWidth - chartPad} y1={y} y2={y} />;
+                    })}
+                    <polyline points={salesLine} />
+                    <polyline class="is-wait" points={waitlistLine} />
+                  </svg>
+                  <ol class="hq-weeks">
+                    {weeks.map((week) => <li>{weekLabel.format(week)}</li>)}
+                  </ol>
+                </>
+              ) : (
+                <p>No paid tickets or waitlist signups have been recorded yet.</p>
+              )
+            }
+          </section>
+        </div>
+        <section class="hq-panel" data-hq-panel="activity">
+          <h2>Recent activity</h2>
+          {
+            activity.length === 0 ? (
+              <p>Nothing has been recorded yet.</p>
+            ) : (
+              <ul class="hq-activity">
+                {activity.map((item) => (
+                  <li>
+                    <a href={item.href}>{item.text}</a>
+                    <time datetime={item.at}>{activityWhen.format(new Date(item.at))}</time>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </section>
+      </HqShell>
+    ) : setupEmail ? (
+      <header class="page-mast">
+        <div class="page-mast-inner">
+          <p class="eyebrow">Timeless Consortium</p>
+          <h1>Choose a password</h1>
+        </div>
+      </header>
+      <div class="page-body">
+        <div class="page-body-inner">
+          <form class="form" method="post" action="/api/staff-login">
+            <input type="hidden" name="intent" value="choose" />
+            {error && <p class="form-error" role="alert">{error}</p>}
+            <p>Set the password for {setupEmail}. This owner account keeps every team permission.</p>
+            <div class="field">
+              <label for="staff-email">Email</label>
+              <input id="staff-email" name="email" type="email" autocomplete="username" value={setupEmail} readonly />
+            </div>
+            <div class="field">
+              <label for="staff-password">Password</label>
+              <input id="staff-password" name="password" type="password" autocomplete="new-password" minlength="10" required />
+            </div>
+            <div class="field">
+              <label for="staff-confirm">Confirm password</label>
+              <input id="staff-confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" required />
+            </div>
+            <button class="button" type="submit">Save password</button>
+          </form>
+        </div>
+      </div>
+    ) : (
+      <header class="page-mast">
+        <div class="page-mast-inner">
+          <p class="eyebrow">Timeless Consortium</p>
+          <h1>Teams</h1>
+        </div>
+      </header>
+      <div class="page-body">
+        <div class="page-body-inner">
+          <form class="form" method="post" action="/api/staff-login">
+            {sent && (
+              <p class="confirmation" role="status">
+                If this inbox has access, a sign-in link is on its way.
+              </p>
+            )}
+            {error && <p class="form-error" role="alert">{error}</p>}
+            <div class="field">
+              <label for="staff-email">Email</label>
+              <input id="staff-email" name="email" type="email" autocomplete="username" maxlength="200" required />
+            </div>
+            <div class="field">
+              <label for="staff-password">Password</label>
+              <input id="staff-password" name="password" type="password" autocomplete="current-password" required />
+            </div>
+            <button class="button" type="submit">Sign in</button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+</Base>
+<script>
+  const tabs = document.querySelectorAll<HTMLButtonElement>("[data-hq-tab]");
+  const panels = document.querySelectorAll<HTMLElement>("[data-hq-panel]");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const name = tab.dataset.hqTab;
+      tabs.forEach((item) => item.setAttribute("aria-selected", item === tab ? "true" : "false"));
+      panels.forEach((panel) => {
+        const which = panel.dataset.hqPanel;
+        panel.hidden = name !== "overview" && which !== name;
+      });
+    });
+  });
+</script>

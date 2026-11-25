@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { squareSignatureValid } from "../../lib/backend/square";
+import { recordSquareTicket } from "../../lib/backend/orders";
 import { completeSquarePayment } from "../../lib/vendor/server";
 
 export const POST: APIRoute = async ({ request }) => {
@@ -12,7 +13,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   let event: {
     type?: string;
-    data?: { object?: { payment?: { status?: string; order_id?: string; note?: string } } };
+    data?: {
+      object?: {
+        payment?: {
+          id?: string;
+          status?: string;
+          order_id?: string;
+          note?: string;
+          amount_money?: { amount?: number };
+        };
+      };
+    };
   };
   try {
     event = JSON.parse(rawBody) as typeof event;
@@ -22,10 +33,21 @@ export const POST: APIRoute = async ({ request }) => {
 
   const payment = event.data?.object?.payment;
   if (event.type === "payment.updated" && payment?.status === "COMPLETED") {
-    await completeSquarePayment({
-      orderId: payment.order_id ?? "",
-      note: payment.note ?? "",
-    });
+    const note = payment.note ?? "";
+    if (note.startsWith("ticket:")) {
+      await recordSquareTicket({
+        paymentId: payment.id ?? "",
+        orderId: payment.order_id ?? "",
+        note,
+        amountCents: Number(payment.amount_money?.amount ?? 0),
+        status: payment.status,
+      });
+    } else {
+      await completeSquarePayment({
+        orderId: payment.order_id ?? "",
+        note,
+      });
+    }
   }
   return new Response(null, { status: 200 });
 };

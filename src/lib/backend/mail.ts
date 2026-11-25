@@ -110,6 +110,30 @@ function messageFor(payload: Record<string, string>): Outbound | null {
       },
     };
   }
+  if (payload.type === "staff-signin" && payload.to && payload.url) {
+    return {
+      lane: "office" as const,
+      to: [payload.to],
+      subject: "Your Timeless Consortium sign-in link",
+      letter: {
+        heading: "Sign in to Teams.",
+        paragraphs: ["This link works once and expires shortly. If you did not ask for it, you can ignore this email."],
+        button: { label: "Sign in", href: payload.url },
+      },
+    };
+  }
+  if (payload.type === "staff-verify" && payload.to && payload.url) {
+    return {
+      lane: "office" as const,
+      to: [payload.to],
+      subject: "Confirm your Timeless Consortium access",
+      letter: {
+        heading: "Confirm this inbox.",
+        paragraphs: ["Open this link once to activate your access. It expires shortly."],
+        button: { label: "Activate access", href: payload.url },
+      },
+    };
+  }
   if (payload.type === "ticket-list-signup" && payload.email) {
     return {
       lane: "welcome" as const,

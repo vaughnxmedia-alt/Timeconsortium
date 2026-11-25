@@ -4,7 +4,9 @@ import type { APIRoute } from "astro";
 import { isStaff, notifySubscribers, rememberError } from "../../lib/vendor/server";
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
-  if (!(await isStaff(cookies))) return redirect("/staff/subscribers");
+  const member = await isStaff(cookies);
+  if (!member) return redirect("/staff/subscribers");
+  if (!member.passwordSet) return redirect("/staff/password");
   const form = await request.formData().catch(() => null);
   if (!form || form.get("confirm") !== "yes") {
     rememberError(cookies, "Confirm that this note should go to everyone on the list.");

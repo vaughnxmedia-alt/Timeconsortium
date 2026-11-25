@@ -1,0 +1,89 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { isStaff, listStaff } from "../../../lib/backend/staff";
+import { takeError, takeLink } from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/team");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+
+const people = member.role === "owner" ? await listStaff() : [];
+const link = takeLink(Astro.cookies);
+const error = takeError(Astro.cookies);
+const statusLabel = {
+  invited: "Invited",
+  active: "Active",
+  revoked: "Access removed",
+};
+---
+
+<Base
+  hq
+  title="Team | Timeless Consortium"
+  description="Private team invitations."
+  path="/staff/team"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/team">
+    <h1 class="hq-title">Team</h1>
+      {
+        member.role !== "owner" ? (
+          <p>Only the owner can invite or remove the team.</p>
+        ) : (
+          <>
+            {error && <p class="form-error" role="alert">{error}</p>}
+            {
+              link && (
+                <div class="field">
+                  <label for="invite-link">Invitation link</label>
+                  <input id="invite-link" readonly value={link} />
+                  <p>Copy this link and send it yourself. It expires and works once. The recipient still confirms their inbox.</p>
+                </div>
+              )
+            }
+            <form class="form" method="post" action="/api/staff-team">
+              <div class="field">
+                <label for="team-email">Email</label>
+                <input id="team-email" name="email" type="email" maxlength="200" required />
+              </div>
+              <button class="button" type="submit">Create invitation</button>
+            </form>
+            <ul class="review-list">
+              {people.map((person) => (
+                <li class="review-card">
+                  <h3>{person.email}</h3>
+                  <p>
+                    {person.role === "owner" ? "Owner" : "Team"} · {statusLabel[person.status]}
+                  </p>
+                  {
+                    person.status !== "active" && (
+                      <form method="post" action="/api/staff-team">
+                        <input type="hidden" name="intent" value="reissue" />
+                        <input type="hidden" name="id" value={person.id} />
+                        <button class="text-link" type="submit">Reissue invitation</button>
+                      </form>
+                    )
+                  }
+                  {
+                    person.id !== member.id && (
+                      <form method="post" action="/api/staff-team">
+                        <input type="hidden" name="intent" value="revoke" />
+                        <input type="hidden" name="id" value={person.id} />
+                        <button class="text-link" type="submit">Revoke access</button>
+                      </form>
+                    )
+                  }
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      }
+  </HqShell>
+</Base>

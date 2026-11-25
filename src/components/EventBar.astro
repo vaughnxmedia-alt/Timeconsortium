@@ -1,0 +1,36 @@
+---
+import { canonicalEvent, type DeskEvent } from "../lib/backend/events";
+
+interface Props {
+  current?: "tickets" | "waitlist" | "vendors" | "partners" | "analytics";
+  event?: DeskEvent;
+}
+
+const occasion = Astro.props.event ?? canonicalEvent();
+const current = Astro.props.current;
+const root = occasion.builtin ? "" : `/staff/events/${occasion.slug}`;
+const links = [
+  { id: "tickets", href: occasion.builtin ? "/staff/tickets" : `${root}/tickets`, label: "Tickets" },
+  { id: "waitlist", href: occasion.builtin ? "/staff/subscribers" : `${root}/waitlist`, label: "Waitlist" },
+  { id: "vendors", href: occasion.builtin ? "/staff/vendors" : `${root}/vendors`, label: "Vendors" },
+  { id: "partners", href: occasion.builtin ? "/staff/partners" : `${root}/partners`, label: "Partners" },
+  { id: "analytics", href: occasion.builtin ? "/staff/analytics" : `${root}/analytics`, label: "Analytics" },
+];
+---
+
+<div class="event-bar">
+  <p>
+    <a href="/staff/events">Events</a>
+    <span aria-hidden="true"> / </span>
+    <a href={`/staff/events/${occasion.slug}`}>{occasion.name}</a>
+  </p>
+  <nav aria-label={occasion.name}>
+    {
+      links.map((item) => (
+        <a href={item.href} aria-current={item.id === current ? "page" : undefined}>
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+</div>

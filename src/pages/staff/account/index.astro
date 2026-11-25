@@ -1,0 +1,93 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { isStaff, staffInitials } from "../../../lib/backend/staff";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/account");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+const error = Astro.url.searchParams.get("error") ?? "";
+const saved = Astro.url.searchParams.get("saved") === "1";
+const initials = staffInitials(member.email);
+---
+
+<Base
+  hq
+  title="Account | Timeless Consortium"
+  description="Private account settings for the Timeless Consortium team."
+  path="/staff/account"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/account">
+    <h1 class="hq-title">Account</h1>
+    <p>Change the photo, email, or password for this sign-in. The current password is required to save.</p>
+    <form class="form" method="post" action="/api/staff-account" enctype="multipart/form-data">
+      {saved && <p class="confirmation" role="status">Account saved. This sign-in stays open.</p>}
+      {error && <p class="form-error" role="alert">{error}</p>}
+      <div class="account-photo">
+        {
+          member.hasAvatar ? (
+            <img id="account-preview" src={`/api/staff-photo?${Date.now()}`} alt="" width="96" height="96" />
+          ) : (
+            <img id="account-preview" alt="" width="96" height="96" hidden />
+          )
+        }
+        <span id="account-fallback" class="hq-initials" hidden={member.hasAvatar}>{initials}</span>
+        <div class="field">
+          <label for="account-photo">Profile photo</label>
+          <input id="account-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" />
+          <p class="field-note">JPEG, PNG, or WebP, up to 1.5 MB. It replaces the initials.</p>
+        </div>
+        {
+          member.hasAvatar && (
+            <label class="check">
+              <input id="remove-photo" type="checkbox" name="removePhoto" value="yes" />
+              <span>Remove the current photo</span>
+            </label>
+          )
+        }
+      </div>
+      <div class="field">
+        <label for="account-email">Email</label>
+        <input id="account-email" name="email" type="email" autocomplete="username" maxlength="200" value={member.email} required />
+      </div>
+      <div class="field">
+        <label for="account-current">Current password</label>
+        <input id="account-current" name="currentPassword" type="password" autocomplete="current-password" required />
+      </div>
+      <div class="field">
+        <label for="account-password">New password <span class="optional">Optional</span></label>
+        <input id="account-password" name="password" type="password" autocomplete="new-password" minlength="10" />
+      </div>
+      <div class="field">
+        <label for="account-confirm">Confirm new password <span class="optional">Optional</span></label>
+        <input id="account-confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" />
+      </div>
+      <button class="button" type="submit">Save account</button>
+    </form>
+  </HqShell>
+</Base>
+<script>
+  const input = document.querySelector<HTMLInputElement>("#account-photo");
+  const preview = document.querySelector<HTMLImageElement>("#account-preview");
+  const fallback = document.querySelector<HTMLElement>("#account-fallback");
+  const remove = document.querySelector<HTMLInputElement>("#remove-photo");
+  input?.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (!file || !preview) return;
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+    if (fallback) fallback.hidden = true;
+    if (remove) remove.checked = false;
+  });
+  remove?.addEventListener("change", () => {
+    if (!remove.checked || !preview || !fallback) return;
+    preview.hidden = true;
+    fallback.hidden = false;
+  });
+</script>

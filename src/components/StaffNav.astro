@@ -1,0 +1,36 @@
+---
+import type { StaffViewer } from "../lib/backend/staff";
+
+interface Props {
+  member: StaffViewer;
+  path: string;
+}
+
+const { member, path } = Astro.props;
+const items = [
+  { href: "/staff", label: "Teams" },
+  { href: "/staff/tickets", label: "Tickets" },
+  { href: "/staff/vendors", label: "Vendors" },
+  { href: "/staff/partners", label: "Partners" },
+  { href: "/staff/analytics", label: "Analytics" },
+];
+if (member.role === "owner") items.push({ href: "/staff/team", label: "Team" });
+
+function current(href: string) {
+  if (href === "/staff") return path === "/staff";
+  return path === href || path.startsWith(`${href}/`);
+}
+---
+
+<nav class="staff-nav" aria-label="Teams">
+  {
+    items.map((item) => (
+      <a href={item.href} aria-current={current(item.href) ? "page" : undefined}>
+        {item.label}
+      </a>
+    ))
+  }
+  <form method="post" action="/api/staff-logout">
+    <button class="text-link" type="submit">Log out</button>
+  </form>
+</nav>

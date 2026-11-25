@@ -1,0 +1,46 @@
+---
+interface Props {
+  title: string;
+  weeks: number[];
+  values: number[];
+  empty: string;
+  series: string;
+}
+
+const { title, weeks, values, empty, series } = Astro.props;
+const hasActivity = values.some((value) => value > 0);
+const peak = Math.max(1, ...values);
+const width = 640;
+const height = 180;
+const pad = 24;
+const point = (index: number) => {
+  const x = pad + (index * (width - pad * 2)) / Math.max(values.length - 1, 1);
+  const y = height - pad - (values[index] / peak) * (height - pad * 2);
+  return `${x},${y}`;
+};
+const line = values.map((_, index) => point(index)).join(" ");
+const weekLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" });
+---
+
+<section class="hq-panel hq-chart">
+  <h2>{title}</h2>
+  {
+    hasActivity ? (
+      <>
+        <p class="hq-legend"><span class="is-sales">{series}</span></p>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+          {[0, 0.5, 1].map((step) => {
+            const y = height - pad - step * (height - pad * 2);
+            return <line x1={pad} x2={width - pad} y1={y} y2={y} />;
+          })}
+          <polyline points={line} />
+        </svg>
+        <ol class="hq-weeks">
+          {weeks.map((week) => <li>{weekLabel.format(week)}</li>)}
+        </ol>
+      </>
+    ) : (
+      <p>{empty}</p>
+    )
+  }
+</section>

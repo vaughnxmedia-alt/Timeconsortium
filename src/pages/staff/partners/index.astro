@@ -1,0 +1,128 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import EventBar from "../../../components/EventBar.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { listDeskEvents } from "../../../lib/backend/events";
+import { isStaff } from "../../../lib/backend/staff";
+import { listQueue, takeError, type SponsorStatus } from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/partners");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+
+const queue = await listQueue();
+const partners = queue.sponsors.slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+const events = await listDeskEvents();
+const error = takeError(Astro.cookies);
+const statuses: { value: SponsorStatus; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "in_conversation", label: "In conversation" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "closed", label: "Closed" },
+];
+---
+
+<Base
+  hq
+  title="Partners | Timeless Consortium"
+  description="Private partner pipeline."
+  path="/staff/partners"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/partners">
+    <EventBar current="partners" />
+    <h1 class="hq-title">Partners</h1>
+      {error && <p class="form-error" role="alert">{error}</p>}
+      <section>
+        <h2>Pipeline</h2>
+        {
+          partners.length === 0 ? (
+            <p>No partners have been saved.</p>
+          ) : (
+            <ul class="review-list">
+              {partners.map((item) => (
+                <li class="review-card">
+                  <h3>{item.firstName || item.contactName} {item.lastName}</h3>
+                  <p>{item.email} · {item.phone || "No phone"}</p>
+                  <p>{item.organization || "No event chosen"}</p>
+                  {item.message && <p>{item.message}</p>}
+                  <form class="form" method="post" action="/api/staff-partners">
+                    <input type="hidden" name="intent" value="status" />
+                    <input type="hidden" name="id" value={item.id} />
+                    <div class="field">
+                      <label for={`status-${item.id}`}>Status</label>
+                      <select id={`status-${item.id}`} name="status">
+                        {statuses.map((status) => (
+                          <option value={status.value} selected={item.status === status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for={`notes-${item.id}`}>Follow-up notes</label>
+                      <textarea id={`notes-${item.id}`} name="notes" maxlength="2000">{item.notes}</textarea>
+                    </div>
+                    <button class="button" type="submit">Save partner</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+      <section>
+        <h2>Add a partner</h2>
+        <p>Use this for someone contacted outside the website.</p>
+        <form class="form" method="post" action="/api/staff-partners">
+          <input type="hidden" name="intent" value="add" />
+          <div class="field">
+            <label for="partner-first">First name</label>
+            <input id="partner-first" name="firstName" type="text" maxlength="60" required />
+          </div>
+          <div class="field">
+            <label for="partner-last">Last name</label>
+            <input id="partner-last" name="lastName" type="text" maxlength="60" required />
+          </div>
+          <div class="field">
+            <label for="partner-email">Email</label>
+            <input id="partner-email" name="email" type="email" maxlength="200" required />
+          </div>
+          <div class="field">
+            <label for="partner-phone">Phone</label>
+            <input id="partner-phone" name="phone" type="tel" maxlength="30" required />
+          </div>
+          <div class="field">
+            <label for="partner-event">Event</label>
+            <select id="partner-event" name="eventSlug" required>
+              {events.map((item) => (
+                <option value={item.slug}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <label for="partner-status">Status</label>
+            <select id="partner-status" name="status">
+              {statuses.map((status) => (
+                <option value={status.value}>{status.label}</option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <label for="partner-message">Message <span class="optional">Optional</span></label>
+            <textarea id="partner-message" name="message" maxlength="800"></textarea>
+          </div>
+          <div class="field">
+            <label for="partner-notes">Follow-up notes <span class="optional">Optional</span></label>
+            <textarea id="partner-notes" name="notes" maxlength="2000"></textarea>
+          </div>
+          <button class="button" type="submit">Add partner</button>
+        </form>
+      </section>
+  </HqShell>
+</Base>

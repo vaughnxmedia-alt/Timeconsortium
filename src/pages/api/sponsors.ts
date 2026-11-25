@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { saveSponsor, setNotice, validateSponsor } from "../../lib/vendor/server";
+import { getDeskEvent } from "../../lib/backend/events";
 
 function wantsJson(request: Request) {
   return request.headers.get("accept")?.includes("application/json") ?? false;
@@ -23,6 +24,14 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
       ? json({ saved: false, message: parsed.error }, 400)
       : redirect("/partner-with-us?error=1#sponsor-request");
   }
+  const occasion = await getDeskEvent(parsed.eventSlug);
+  if (!occasion) {
+    return wantsJson(request)
+      ? json({ saved: false, message: "Choose the event. The inquiry was not saved." }, 400)
+      : redirect("/partner-with-us?error=1#sponsor-request");
+  }
+  parsed.organization = occasion.name;
+  parsed.eventSlug = occasion.slug;
   try {
     const result = await saveSponsor(parsed);
     if (wantsJson(request)) return json({ saved: true }, 200);

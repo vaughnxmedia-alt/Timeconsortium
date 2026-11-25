@@ -24,5 +24,6 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
     <a href={sponsorPage.path} aria-current={path === sponsorPage.path ? "page" : undefined}>
       {sponsorPage.heading}
     </a>
+    <a href="/staff" aria-current={path === "/staff" || path.startsWith("/staff/") ? "page" : undefined}>Teams</a>
   </nav>
 </footer>

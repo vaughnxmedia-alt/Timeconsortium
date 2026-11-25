@@ -1,0 +1,49 @@
+---
+export const prerender = false;
+
+import Base from "../../layouts/Base.astro";
+import { inviteStillOpen } from "../../lib/backend/staff";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const token = Astro.url.searchParams.get("token") ?? "";
+const sent = Astro.url.searchParams.get("sent") === "1";
+const failed = Astro.url.searchParams.get("error") === "1";
+const email = sent ? "" : await inviteStillOpen(token);
+---
+
+<Base
+  title="Team invitation | Timeless Consortium"
+  description="Private team invitation."
+  path="/staff/invite"
+  robots="noindex, nofollow"
+>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">Timeless Consortium</p>
+      <h1>Team invitation</h1>
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner">
+      {
+        sent ? (
+          <p class="confirmation" role="status">
+            A confirmation link is on its way to the invited inbox. It works once.
+          </p>
+        ) : email ? (
+          <form class="form" method="post" action="/api/staff-verify">
+            <input type="hidden" name="token" value={token} />
+            <p>This invitation is for {email}. Confirm that inbox before access begins.</p>
+            <button class="button" type="submit">Email me a confirmation link</button>
+          </form>
+        ) : (
+          <p class="form-error" role="alert">
+            {failed ? "This invitation is no longer valid." : "This invitation is no longer valid."}
+          </p>
+        )
+      }
+    </div>
+  </div>
+</Base>

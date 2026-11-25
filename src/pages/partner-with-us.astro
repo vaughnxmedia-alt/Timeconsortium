@@ -1,12 +1,14 @@
 ---
 import Base from "../layouts/Base.astro";
 import { sponsorPage } from "../config/site";
+import { listDeskEvents } from "../lib/backend/events";
 import { readNotice } from "../lib/vendor/server";
 
 export const prerender = false;
 
 const saved = await readNotice(Astro.cookies, "sponsor");
 const showError = Astro.url.searchParams.get("error") === "1";
+const events = await listDeskEvents();
 ---
 
 <Base title={sponsorPage.title} description={sponsorPage.description} path={sponsorPage.path}>
@@ -33,32 +35,29 @@ const showError = Astro.url.searchParams.get("error") === "1";
             <input id="sponsor-company" name="company_website" type="text" tabindex="-1" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="sponsor-name">Contact name</label>
-            <input id="sponsor-name" name="contactName" type="text" autocomplete="name" maxlength="120" required />
+            <label for="sponsor-first">First name</label>
+            <input id="sponsor-first" name="firstName" type="text" autocomplete="given-name" maxlength="60" required />
           </div>
           <div class="field">
-            <label for="sponsor-organization">Organization</label>
-            <input id="sponsor-organization" name="organization" type="text" autocomplete="organization" maxlength="160" required />
+            <label for="sponsor-last">Last name</label>
+            <input id="sponsor-last" name="lastName" type="text" autocomplete="family-name" maxlength="60" required />
           </div>
           <div class="field">
             <label for="sponsor-email">Email</label>
             <input id="sponsor-email" name="email" type="email" autocomplete="email" maxlength="200" required />
           </div>
-          <fieldset class="choices">
-            <legend>Sponsorship interest</legend>
-            <label>
-              <input type="radio" name="interest" value="financial" required />
-              <span>Financial support</span>
-            </label>
-            <label>
-              <input type="radio" name="interest" value="in-kind" />
-              <span>In-kind contributions</span>
-            </label>
-            <label>
-              <input type="radio" name="interest" value="discussing" />
-              <span>Discussing options</span>
-            </label>
-          </fieldset>
+          <div class="field">
+            <label for="sponsor-phone">Phone</label>
+            <input id="sponsor-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" required />
+          </div>
+          <div class="field">
+            <label for="sponsor-event">Event</label>
+            <select id="sponsor-event" name="eventSlug" required>
+              {events.map((item) => (
+                <option value={item.slug}>{item.name}</option>
+              ))}
+            </select>
+          </div>
           <div class="field">
             <label for="sponsor-message">Message <span class="optional">Optional</span></label>
             <textarea id="sponsor-message" name="message" maxlength="800"></textarea>

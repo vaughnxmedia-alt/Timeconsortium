@@ -41,6 +41,9 @@ export type VendorRecord = {
   createdAt: string;
   updatedAt: string;
   contactName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   businessName: string;
   specialty: string;
   specialtyGroup: string;
@@ -74,14 +77,25 @@ export type VendorRecord = {
 
 export type SponsorInterest = "financial" | "in-kind" | "discussing";
 
+export type SponsorStatus = "new" | "in_conversation" | "confirmed" | "closed";
+export type SponsorSource = "website" | "staff";
+
 export type SponsorRecord = {
   id: string;
   createdAt: string;
+  updatedAt: string;
   contactName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   organization: string;
+  eventSlug: string;
   email: string;
   interest: SponsorInterest;
   message: string;
+  notes: string;
+  status: SponsorStatus;
+  source: SponsorSource;
   notified: boolean;
 };
 
@@ -139,11 +153,38 @@ function locked<T>(task: () => Promise<T>) {
 }
 
 export function emailConfigured() {
-  return resendConfigured() || /^https:\/\//i.test(env("EMAIL_WEBHOOK_URL"));
+  const webhook = env("EMAIL_WEBHOOK_URL");
+  return resendConfigured() || /^https:\/\//i.test(webhook) || loopbackWebhook(webhook);
 }
 
 export function staffConfigured() {
-  return env("STAFF_ACCESS_TOKEN").length >= 16;
+  return true;
+}
+
+function sponsorStatus(value: unknown): SponsorStatus {
+  return value === "in_conversation" || value === "confirmed" || value === "closed" ? value : "new";
+}
+
+export function normalizeSponsor(value: Partial<SponsorRecord> | null | undefined): SponsorRecord {
+  const createdAt = value?.createdAt || new Date().toISOString();
+  return {
+    id: value?.id || "",
+    createdAt,
+    updatedAt: value?.updatedAt || createdAt,
+    contactName: value?.contactName || [value?.firstName, value?.lastName].filter(Boolean).join(" "),
+    firstName: value?.firstName || value?.contactName?.split(/\s+/)[0] || "",
+    lastName: value?.lastName || value?.contactName?.split(/\s+/).slice(1).join(" ") || "",
+    phone: value?.phone || "",
+    organization: value?.organization || "",
+    eventSlug: value?.eventSlug || "",
+    email: value?.email || "",
+    interest: value?.interest === "in-kind" || value?.interest === "discussing" ? value.interest : "financial",
+    message: value?.message || "",
+    notes: value?.notes || "",
+    status: sponsorStatus(value?.status),
+    source: value?.source === "staff" ? "staff" : "website",
+    notified: Boolean(value?.notified),
+  };
 }
 
 function text(value: FormDataEntryValue | null, max: number) {
@@ -155,6 +196,11 @@ function text(value: FormDataEntryValue | null, max: number) {
 
 function emailOk(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 200;
+}
+
+function phoneOk(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 function httpUrl(value: string) {
@@ -169,6 +215,16 @@ function httpUrl(value: string) {
 function httpsUrl(value: string) {
   try {
     return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function loopbackWebhook(value: string) {
+  if (process.env.NODE_ENV === "production") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
   } catch {
     return false;
   }
@@ -225,7 +281,7 @@ async function readDatabase(): Promise<Database> {
     const loaded = await loadPrivateDatabase();
     return {
       vendors: loaded.vendors.map(normalizeVendor),
-      sponsors: loaded.sponsors,
+      sponsors: loaded.sponsors.map((item) => normalizeSponsor(item)),
       ticketList: loaded.ticketList,
       tokens: loaded.tokens,
     };
@@ -234,7 +290,7 @@ async function readDatabase(): Promise<Database> {
     const parsed = JSON.parse(await readFile(databasePath, "utf8")) as Database;
     return {
       vendors: Array.isArray(parsed.vendors) ? parsed.vendors.map(normalizeVendor) : [],
-      sponsors: Array.isArray(parsed.sponsors) ? parsed.sponsors : [],
+      sponsors: Array.isArray(parsed.sponsors) ? parsed.sponsors.map((item) => normalizeSponsor(item)) : [],
       ticketList: Array.isArray(parsed.ticketList) ? parsed.ticketList : [],
       tokens: Array.isArray(parsed.tokens) ? parsed.tokens : [],
     };
@@ -273,6 +329,9 @@ function blankVendor(
     | "createdAt"
     | "updatedAt"
     | "contactName"
+    | "firstName"
+    | "lastName"
+    | "phone"
     | "businessName"
     | "specialty"
     | "specialtyGroup"
@@ -284,6 +343,10 @@ function blankVendor(
 ): VendorRecord {
   return {
     ...input,
+    firstName: input.firstName || "",
+    lastName: input.lastName || "",
+    phone: input.phone || "",
+    contactName: input.contactName || [input.firstName, input.lastName].filter(Boolean).join(" "),
     status: "submitted",
     staffNotes: "",
     included: "",
@@ -316,6 +379,9 @@ function normalizeVendor(item: VendorRecord): VendorRecord {
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       contactName: item.contactName,
+      firstName: item.firstName || "",
+      lastName: item.lastName || "",
+      phone: item.phone || "",
       businessName: item.businessName,
       specialty: item.specialty || "",
       specialtyGroup: item.specialtyGroup || "other",
@@ -335,6 +401,9 @@ function normalizeVendor(item: VendorRecord): VendorRecord {
     publicSummary: item.publicSummary || "",
     publicPortfolio: item.publicPortfolio || "",
     publicLogoUrl: item.publicLogoUrl || "",
+    firstName: item.firstName || (item.contactName || "").split(/\s+/)[0] || "",
+    lastName: item.lastName || (item.contactName || "").split(/\s+/).slice(1).join(" "),
+    phone: item.phone || "",
   };
 }
 
@@ -342,14 +411,17 @@ export function validateApplication(form: FormData) {
   if (text(form.get("company_website"), 200)) {
     return { error: "The request was not saved." };
   }
-  const contactName = text(form.get("contactName"), 120);
+  const firstName = text(form.get("firstName"), 60);
+  const lastName = text(form.get("lastName"), 60);
+  const contactName = [firstName, lastName].filter(Boolean).join(" ");
   const businessName = text(form.get("businessName"), 160);
   const specialtyGroup = text(form.get("specialtyGroup"), 80);
   const specialtyOther = text(form.get("specialtyOther"), 160);
   const email = text(form.get("email"), 200).toLowerCase();
+  const phone = text(form.get("phone"), 30);
   const portfolio = text(form.get("portfolio"), 400);
   const contribution = text(form.get("contribution"), 800);
-  if (!contactName || !businessName || !contribution) {
+  if (!firstName || !lastName || !businessName || !contribution) {
     return { error: "Check the required fields. The request was not saved." };
   }
   if (!isSpecialtyGroup(specialtyGroup)) {
@@ -361,15 +433,21 @@ export function validateApplication(form: FormData) {
   if (!emailOk(email)) {
     return { error: "Enter a valid email address. The request was not saved." };
   }
-  if (!httpUrl(portfolio)) {
+  if (!phoneOk(phone)) {
+    return { error: "Enter a phone number. The request was not saved." };
+  }
+  if (portfolio && !httpUrl(portfolio)) {
     return {
-      error: "Enter a portfolio or website link that starts with http:// or https://. The request was not saved.",
+      error: "Enter a website link that starts with http:// or https://. The request was not saved.",
     };
   }
   const specialty =
     specialtyGroup === "other" ? specialtyOther : specialtyLabel(specialtyGroup);
   return {
     contactName,
+    firstName,
+    lastName,
+    phone,
     businessName,
     specialty,
     specialtyGroup,
@@ -384,26 +462,37 @@ export function validateSponsor(form: FormData) {
   if (text(form.get("company_website"), 200)) {
     return { error: "The inquiry was not saved." };
   }
-  const contactName = text(form.get("contactName"), 120);
+  const firstName = text(form.get("firstName"), 60);
+  const lastName = text(form.get("lastName"), 60);
+  const contactName = [firstName, lastName].filter(Boolean).join(" ");
+  const phone = text(form.get("phone"), 30);
+  const eventSlug = text(form.get("eventSlug"), 80);
   const organization = text(form.get("organization"), 160);
   const email = text(form.get("email"), 200).toLowerCase();
   const interest = text(form.get("interest"), 40);
   const message = text(form.get("message"), 800);
   const allowed: SponsorInterest[] = ["financial", "in-kind", "discussing"];
-  if (!contactName || !organization) {
+  if (!firstName || !lastName || !eventSlug) {
     return { error: "Check the required fields. The inquiry was not saved." };
   }
   if (!emailOk(email)) {
     return { error: "Enter a valid email address. The inquiry was not saved." };
   }
-  if (!allowed.includes(interest as SponsorInterest)) {
+  if (!phoneOk(phone)) {
+    return { error: "Enter a phone number. The inquiry was not saved." };
+  }
+  if (interest && !allowed.includes(interest as SponsorInterest)) {
     return { error: "Choose a sponsorship interest. The inquiry was not saved." };
   }
   return {
     contactName,
-    organization,
+    firstName,
+    lastName,
+    phone,
+    organization: organization || eventSlug,
+    eventSlug,
     email,
-    interest: interest as SponsorInterest,
+    interest: (allowed.includes(interest as SponsorInterest) ? interest : "discussing") as SponsorInterest,
     message,
   };
 }
@@ -411,7 +500,7 @@ export function validateSponsor(form: FormData) {
 async function deliver(payload: Record<string, string>) {
   if (resendConfigured()) return sendBackendEmail(payload);
   const webhook = env("EMAIL_WEBHOOK_URL");
-  if (!httpsUrl(webhook)) return false;
+  if (!httpsUrl(webhook) && !loopbackWebhook(webhook)) return false;
   try {
     const response = await fetch(webhook, {
       method: "POST",
@@ -440,7 +529,7 @@ async function notifySponsor(record: SponsorRecord) {
     });
   }
   const target = httpsUrl(inbox) ? inbox : env("EMAIL_WEBHOOK_URL");
-  if (!httpsUrl(target)) return false;
+  if (!httpsUrl(target) && !loopbackWebhook(target)) return false;
   try {
     const response = await fetch(target, {
       method: "POST",
@@ -463,6 +552,9 @@ async function notifySponsor(record: SponsorRecord) {
 
 export async function saveApplication(input: {
   contactName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   businessName: string;
   specialty: string;
   specialtyGroup: string;
@@ -502,14 +594,23 @@ export async function saveApplication(input: {
 
 export async function saveSponsor(input: {
   contactName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   organization: string;
+  eventSlug: string;
   email: string;
   interest: SponsorInterest;
   message: string;
 }) {
+  const createdAt = new Date().toISOString();
   const record: SponsorRecord = {
     id: randomBytes(8).toString("hex"),
-    createdAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: createdAt,
+    notes: "",
+    status: "new",
+    source: "website",
     notified: false,
     ...input,
   };
@@ -520,6 +621,52 @@ export async function saveSponsor(input: {
     await writeDatabase(database);
   });
   return { saved: true as const, emailed: record.notified };
+}
+
+export async function addStaffPartner(input: {
+  contactName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  organization: string;
+  eventSlug: string;
+  email: string;
+  interest: SponsorInterest;
+  message: string;
+  notes: string;
+  status: SponsorStatus;
+}) {
+  const createdAt = new Date().toISOString();
+  const record = normalizeSponsor({
+    id: randomBytes(8).toString("hex"),
+    createdAt,
+    updatedAt: createdAt,
+    notified: false,
+    source: "staff",
+    ...input,
+  });
+  await locked(async () => {
+    const database = await readDatabase();
+    database.sponsors.push(record);
+    await writeDatabase(database);
+  });
+  return { ok: true as const };
+}
+
+export async function updateSponsor(
+  id: string,
+  input: { status: SponsorStatus; notes: string },
+) {
+  return locked(async () => {
+    const database = await readDatabase();
+    const record = database.sponsors.find((item) => item.id === id);
+    if (!record) return { ok: false as const, message: "That partner was not found." };
+    record.status = input.status;
+    record.notes = input.notes;
+    record.updatedAt = new Date().toISOString();
+    await writeDatabase(database);
+    return { ok: true as const };
+  });
 }
 
 export async function saveTicketListSignup(form: FormData) {
@@ -671,25 +818,7 @@ export async function setReceipt(cookies: CookieJar, id: string) {
   cookies.set("vendor_receipt", seal(id, secret, 60 * 10), cookieOptions(60 * 10));
 }
 
-export async function isStaff(cookies: CookieJar) {
-  if (!staffConfigured()) return false;
-  const token = cookies.get("staff_session")?.value ?? "";
-  if (!token) return false;
-  const secret = await signingSecret();
-  return openSeal(token, secret) === "staff";
-}
-
-export async function loginStaff(cookies: CookieJar, password: string) {
-  const expected = env("STAFF_ACCESS_TOKEN");
-  if (!staffConfigured() || !same(password, expected)) return false;
-  const secret = await signingSecret();
-  cookies.set("staff_session", seal("staff", secret, 60 * 60 * 12), cookieOptions(60 * 60 * 12, "/"));
-  return true;
-}
-
-export function logoutStaff(cookies: CookieJar) {
-  cookies.delete("staff_session", { path: "/" });
-}
+export { isStaff, logoutStaff } from "../backend/staff";
 
 async function issueToken(vendorId: string) {
   const raw = randomBytes(32).toString("base64url");

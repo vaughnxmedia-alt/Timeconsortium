@@ -18,9 +18,11 @@
  * The Makers (/vendor-hub) and sponsorship
  * - Applications and sponsor inquiries are saved by the server into Supabase
  *   when SUPABASE_URL and SUPABASE_SECRET_KEY are set.
- * - STAFF_ACCESS_TOKEN opens /staff/vendors and /staff/subscribers.
- *   Guest mail is sent from welcome@ and vendor mail from office@.
- *   Neither is sent until Resend is configured.
+ * - The first owner is created with scripts/create-staff-owner.mjs after the
+ *   staff migration. There is no public setup route. Teams sign-in is email
+ *   only. SIGNING_SECRET must be at least 32 characters on the server.
+ *   Square ticket totals stay at zero until SQUARE_ACCESS_TOKEN and
+ *   SQUARE_LOCATION_ID are set.
  * - When Square is configured, accepting a paid vendor creates a Square
  *   checkout link. A fee cannot be confirmed until payment is recorded.
  * - Event-day instructions live in vendorProgram.eventDay.
@@ -88,6 +90,8 @@ export const event = {
   locality: "Beaumont",
   region: "TX",
   placeLine: "Beaumont Botanical Gardens · Beaumont, Texas",
+  /** Homepage identity line only. Midnight Central Time, New Year 2027, reveals the venue. */
+  placeRevealAt: "2027-01-01T00:00:00-06:00",
   eveningTitle: "One evening in Beaumont.",
   eveningParagraphs: [
     "Find inspiration for your wedding or next celebration in candlelit tablescapes, sculptural florals, and the work of local event designers.",
@@ -387,6 +391,8 @@ export const pages = {
 export const tickets = {
   /** "updates" before sales open. "sales" once checkout is ready. */
   phase: "updates" as "updates" | "sales",
+  /** Midnight Central Time. The homepage countdown ends here. Checkout stays closed until phase is "sales" and checkoutUrl is set. */
+  launchAt: "2027-01-01T00:00:00-06:00",
   signupUrl: "",
   checkoutUrl: "",
 };

@@ -4,7 +4,18 @@ import Closing from "../components/Closing.astro";
 import HotelStay from "../components/HotelStay.astro";
 import LeadDecorPartner from "../components/LeadDecorPartner.astro";
 import TicketCta from "../components/TicketCta.astro";
-import { eveningPage, event, images, pages } from "../config/site";
+import { eveningPage, event, images, pages, tickets } from "../config/site";
+
+const launchAt = Date.parse(tickets.launchAt);
+const placeRevealed = Number.isFinite(launchAt) && Date.now() >= launchAt;
+const remaining = placeRevealed ? 0 : Math.max(0, launchAt - Date.now());
+const clock = {
+  days: Math.floor(remaining / 86_400_000),
+  hours: Math.floor(remaining / 3_600_000) % 24,
+  minutes: Math.floor(remaining / 60_000) % 60,
+  seconds: Math.floor(remaining / 1000) % 60,
+};
+const pad = (value: number) => String(value).padStart(2, "0");
 ---
 
 <Base
@@ -29,8 +40,33 @@ import { eveningPage, event, images, pages } from "../config/site";
         <h1>{event.name}</h1>
         <p class="kicker">A wedding and event experience</p>
         <p class="date-line">{event.dateLabel}</p>
-        <p class="place">{event.placeLine}</p>
-        <TicketCta note={false} />
+        {
+          !placeRevealed && (
+            <p class="launch-release">Tickets and the location will be released New Year’s 2027.</p>
+          )
+        }
+        <p class="place" data-place-reveal hidden={!placeRevealed}>{event.placeLine}</p>
+        <div class="launch-row">
+          {
+            !placeRevealed && (
+              <div
+                class="launch-clock"
+                role="timer"
+                data-launch={tickets.launchAt}
+                aria-label={`${clock.days} days until tickets are available`}
+              >
+                <p>Until tickets are available</p>
+                <ol>
+                  <li><strong data-unit="days">{pad(clock.days)}</strong><span>Days</span></li>
+                  <li><strong data-unit="hours">{pad(clock.hours)}</strong><span>Hours</span></li>
+                  <li><strong data-unit="minutes">{pad(clock.minutes)}</strong><span>Minutes</span></li>
+                  <li><strong data-unit="seconds">{pad(clock.seconds)}</strong><span>Seconds</span></li>
+                </ol>
+              </div>
+            )
+          }
+          <TicketCta note={false} />
+        </div>
       </div>
     </article>
 
@@ -76,4 +112,37 @@ import { eveningPage, event, images, pages } from "../config/site";
   <div class="home-follow">
     <HotelStay layout="card" />
   </div>
+  <script>
+    const clock = document.querySelector(".launch-clock");
+    const place = document.querySelector("[data-place-reveal]");
+    if (clock instanceof HTMLElement) {
+      const launch = Date.parse(clock.dataset.launch || "");
+      const units = ["days", "hours", "minutes", "seconds"] as const;
+      const pad = (value: number) => String(value).padStart(2, "0");
+      const tick = () => {
+        const left = launch - Date.now();
+        if (!Number.isFinite(launch) || left <= 0) {
+          clock.hidden = true;
+          if (place instanceof HTMLElement) place.hidden = false;
+          return;
+        }
+        const parts = {
+          days: Math.floor(left / 86_400_000),
+          hours: Math.floor(left / 3_600_000) % 24,
+          minutes: Math.floor(left / 60_000) % 60,
+          seconds: Math.floor(left / 1000) % 60,
+        };
+        for (const unit of units) {
+          const node = clock.querySelector(`[data-unit="${unit}"]`);
+          if (node) node.textContent = pad(parts[unit]);
+        }
+        clock.setAttribute(
+          "aria-label",
+          `${parts.days} days, ${parts.hours} hours, ${parts.minutes} minutes until tickets and the location`,
+        );
+        window.setTimeout(tick, 1000);
+      };
+      tick();
+    }
+  </script>
 </Base>

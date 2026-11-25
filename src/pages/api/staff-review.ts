@@ -17,7 +17,9 @@ function text(form: FormData, name: string, max: number) {
 }
 
 export const POST: APIRoute = async ({ request, cookies, redirect, url }) => {
-  if (!(await isStaff(cookies))) return redirect("/staff/vendors");
+  const member = await isStaff(cookies);
+  if (!member) return redirect("/staff/vendors");
+  if (!member.passwordSet) return redirect("/staff/password");
   const form = await request.formData().catch(() => null);
   if (!form) return redirect("/staff/vendors");
   const id = text(form, "id", 40);

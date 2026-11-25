@@ -1,0 +1,92 @@
+---
+export const prerender = false;
+
+import Base from "../../../layouts/Base.astro";
+import EventBar from "../../../components/EventBar.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { listTicketOrders, ticketSummary } from "../../../lib/backend/orders";
+import { squareConfigured } from "../../../lib/backend/square";
+import { isStaff } from "../../../lib/backend/staff";
+import { listQueue, listSubscribers } from "../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/analytics");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+
+const people = await listSubscribers();
+const orders = await listTicketOrders();
+const summary = ticketSummary(orders);
+const queue = await listQueue();
+const confirmedVendors = queue.vendors.filter((item) => item.status === "confirmed").length;
+const confirmedPartners = queue.sponsors.filter((item) => item.status === "confirmed").length;
+
+function money(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
+
+const growth = new Map<string, number>();
+for (const person of people) {
+  const date = new Date(person.createdAt);
+  const label = Number.isNaN(date.getTime())
+    ? "Undated"
+    : new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Chicago" }).format(date);
+  growth.set(label, (growth.get(label) ?? 0) + 1);
+}
+---
+
+<Base
+  hq
+  title="Analytics | Timeless Consortium"
+  description="Private counts for the Timeless Consortium team."
+  path="/staff/analytics"
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path="/staff/analytics">
+    <EventBar current="analytics" />
+    <h1 class="hq-title">Analytics</h1>
+      {
+        squareConfigured() ? (
+          <p>Square ticket payments are included in tickets sold and revenue.</p>
+        ) : (
+          <p class="preview-note">Square is not connected. Ticket totals use recorded orders only.</p>
+        )
+      }
+      <section>
+        <h2>Waitlist</h2>
+        <p>{people.length} {people.length === 1 ? "signup" : "signups"}. This is not a ticket purchase.</p>
+        {
+          growth.size === 0 ? (
+            <p>No waitlist signups have been saved.</p>
+          ) : (
+            <ul class="review-list">
+              {[...growth.entries()].map(([label, count]) => (
+                <li class="review-card">
+                  <h3>{label}</h3>
+                  <p>{count} {count === 1 ? "signup" : "signups"}</p>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+      <section>
+        <h2>Tickets sold</h2>
+        <p>Square {summary.squareTickets} · {money(summary.squareCents)}</p>
+        <p>Manual {summary.manualTickets} · {money(summary.manualCents)}</p>
+        <p>Combined {summary.ticketsSold} · {money(summary.revenueCents)}</p>
+      </section>
+      <section>
+        <h2>Vendors</h2>
+        <p>{queue.vendors.length} {queue.vendors.length === 1 ? "application" : "applications"}</p>
+        <p>{confirmedVendors} confirmed</p>
+      </section>
+      <section>
+        <h2>Partners</h2>
+        <p>{queue.sponsors.length} {queue.sponsors.length === 1 ? "inquiry" : "inquiries"}</p>
+        <p>{confirmedPartners} confirmed</p>
+      </section>
+  </HqShell>
+</Base>

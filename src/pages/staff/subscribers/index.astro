@@ -2,16 +2,20 @@
 export const prerender = false;
 
 import Base from "../../../layouts/Base.astro";
-import { emailConfigured, isStaff, listNoticesSent, listSubscribers, staffConfigured, takeError } from "../../../lib/vendor/server";
+import EventBar from "../../../components/EventBar.astro";
+import HqShell from "../../../components/HqShell.astro";
+import { isStaff } from "../../../lib/backend/staff";
+import { emailConfigured, listNoticesSent, listSubscribers, takeError } from "../../../lib/vendor/server";
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
 
-const configured = staffConfigured();
-const allowed = configured && (await isStaff(Astro.cookies));
-const people = allowed ? await listSubscribers() : [];
-const notices = allowed ? await listNoticesSent() : [];
-const loginError = Astro.url.searchParams.get("error") === "1";
-const formError = allowed ? takeError(Astro.cookies) : "";
+const member = await isStaff(Astro.cookies);
+if (!member) return Astro.redirect("/staff?next=/staff/subscribers");
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+const people = await listSubscribers();
+const notices = await listNoticesSent();
+const formError = takeError(Astro.cookies);
 const sent = Number(Astro.url.searchParams.get("sent"));
 const failed = Number(Astro.url.searchParams.get("failed"));
 const justSent = Astro.url.searchParams.has("sent") && Number.isInteger(sent) && sent >= 0;
@@ -32,56 +36,23 @@ function countLabel(count: number, singular: string, plural: string) {
 ---
 
 <Base
+  hq
   title="Notify list | Timeless Consortium"
   description="Private list of people waiting to hear from Timeless Consortium."
   path="/staff/subscribers"
   robots="noindex, nofollow"
 >
-  <header class="page-mast">
-    <div class="page-mast-inner">
-      <p class="eyebrow">Staff</p>
-      <h1>Notify list</h1>
-      {
-        allowed && !emailConfigured() && (
-          <p class="preview-note">
-            Email delivery is not configured. Set RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE before a note can be sent.
-          </p>
-        )
-      }
-    </div>
-  </header>
-  <div class="page-body">
-    <div class="page-body-inner">
-      {
-        !configured && (
-          <p class="preview-note">
-            The notify list stays closed until STAFF_ACCESS_TOKEN is set on the server. Signups can still be saved.
-          </p>
-        )
-      }
-      {
-        configured && !allowed && (
-          <form class="form" method="post" action="/api/staff-login">
-            <input type="hidden" name="next" value="/staff/subscribers" />
-            {loginError && <p class="form-error" role="alert">That access token was not accepted.</p>}
-            <div class="field">
-              <label for="staff-token">Staff access token</label>
-              <input id="staff-token" name="token" type="password" autocomplete="current-password" required />
-            </div>
-            <button class="button" type="submit">Open the list</button>
-          </form>
-        )
-      }
-      {
-        allowed && (
-          <>
-            <p>
-              <a href="/staff/vendors">Vendor review</a>
-            </p>
-            <form method="post" action="/api/staff-logout">
-              <button class="text-link" type="submit">Log out</button>
-            </form>
-            {formError && <p class="form-error" role="alert">{formError}</p>}
+  <HqShell member={member} path="/staff/subscribers">
+    <EventBar current="waitlist" />
+    <h1 class="hq-title">Waitlist</h1>
+    {
+      !emailConfigured() && (
+        <p class="preview-note">
+          Email delivery is not configured. Set RESEND_API_KEY, RESEND_FROM_WELCOME, and RESEND_FROM_OFFICE before a note can be sent.
+        </p>
+      )
+    }
+      {formError && <p class="form-error" role="alert">{formError}</p>}
             {
               justSent && (
                 <p class="confirmation" role="status">
@@ -157,9 +128,5 @@ function countLabel(count: number, singular: string, plural: string) {
                 )
               }
             </section>
-          </>
-        )
-      }
-    </div>
-  </div>
+  </HqShell>
 </Base>

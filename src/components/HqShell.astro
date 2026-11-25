@@ -1,0 +1,79 @@
+---
+import type { StaffViewer } from "../lib/backend/staff";
+import { staffInitials } from "../lib/backend/staff";
+
+interface Props {
+  member: StaffViewer;
+  path: string;
+}
+
+const { member, path } = Astro.props;
+const items = [
+  { href: "/staff", label: "Overview" },
+  { href: "/staff/events", label: "Events" },
+];
+if (member.role === "owner") items.push({ href: "/staff/team", label: "Team" });
+
+function current(href: string) {
+  if (href === "/staff") return path === "/staff";
+  if (href === "/staff/events") {
+    return (
+      path.startsWith("/staff/events") ||
+      path.startsWith("/staff/tickets") ||
+      path.startsWith("/staff/subscribers") ||
+      path.startsWith("/staff/vendors") ||
+      path.startsWith("/staff/partners") ||
+      path.startsWith("/staff/analytics")
+    );
+  }
+  return path === href || path.startsWith(`${href}/`);
+}
+
+const initials = staffInitials(member.email);
+---
+
+<div class="hq">
+  <input id="hq-nav-toggle" class="hq-toggle" type="checkbox" />
+  <aside class="hq-side">
+    <p class="hq-brand">
+      <span>Timeless</span>
+      <span>Consortium</span>
+    </p>
+    <label class="hq-menu" for="hq-nav-toggle">Menu</label>
+    <nav aria-label="HQ">
+      {
+        items.map((item) => (
+          <a href={item.href} aria-current={current(item.href) ? "page" : undefined}>
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+    <form method="post" action="/api/staff-logout">
+      <button type="submit">Log out</button>
+    </form>
+  </aside>
+  <div class="hq-main">
+    <header class="hq-top">
+      <p>Timeless Consortium HQ</p>
+      <label class="visually-hidden" for="hq-search">Search HQ</label>
+      <input id="hq-search" type="search" placeholder="Search HQ" autocomplete="off" />
+      <a class="hq-initials" href="/staff/account" aria-label="Account settings" title="Account settings">
+        {member.hasAvatar ? <img src={`/api/staff-photo?${Date.now()}`} alt="" /> : initials}
+      </a>
+    </header>
+    <div class="hq-canvas">
+      <slot />
+    </div>
+  </div>
+</div>
+<script>
+  const search = document.querySelector<HTMLInputElement>("#hq-search");
+  const targets = document.querySelectorAll<HTMLElement>(".review-card, .hq-row, .hq-activity li");
+  search?.addEventListener("input", () => {
+    const query = search.value.trim().toLowerCase();
+    targets.forEach((item) => {
+      item.hidden = Boolean(query) && !item.textContent?.toLowerCase().includes(query);
+    });
+  });
+</script>

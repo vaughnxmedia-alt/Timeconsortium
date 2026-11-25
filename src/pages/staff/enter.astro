@@ -1,0 +1,35 @@
+---
+export const prerender = false;
+
+import Base from "../../layouts/Base.astro";
+import { openStaffEntry } from "../../lib/backend/staff";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const opened = await openStaffEntry(Astro.url.searchParams.get("token") ?? "", Astro.cookies);
+if (opened === "password") return Astro.redirect("/staff/password");
+if (opened === "ready") return Astro.redirect("/staff");
+---
+
+<Base
+  title="Teams | Timeless Consortium"
+  description="Private sign-in for the Timeless Consortium team."
+  path="/staff/enter"
+  robots="noindex, nofollow"
+>
+  <header class="page-mast">
+    <div class="page-mast-inner">
+      <p class="eyebrow">Timeless Consortium</p>
+      <h1>Teams</h1>
+    </div>
+  </header>
+  <div class="page-body">
+    <div class="page-body-inner">
+      <p class="form-error" role="alert">This link is no longer valid.</p>
+      <p>
+        <a href="/staff">Return to Teams</a>
+      </p>
+    </div>
+  </div>
+</Base>

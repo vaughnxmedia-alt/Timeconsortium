@@ -1,0 +1,62 @@
+---
+export const prerender = false;
+
+import Base from "../../../../layouts/Base.astro";
+import EventBar from "../../../../components/EventBar.astro";
+import HqShell from "../../../../components/HqShell.astro";
+import { getDeskEvent } from "../../../../lib/backend/events";
+import { listTicketOrders, ticketSummary } from "../../../../lib/backend/orders";
+import { isStaff } from "../../../../lib/backend/staff";
+import { listQueue, listSubscribers } from "../../../../lib/vendor/server";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const member = await isStaff(Astro.cookies);
+const slug = Astro.params.slug ?? "";
+if (!member) return Astro.redirect(`/staff?next=/staff/events/${slug}`);
+if (!member.passwordSet) return Astro.redirect("/staff/password");
+const occasion = await getDeskEvent(slug);
+if (!occasion) Astro.response.status = 404;
+
+const people = occasion?.builtin ? await listSubscribers() : [];
+const orders = occasion?.builtin ? await listTicketOrders() : [];
+const summary = ticketSummary(orders);
+const queue = occasion?.builtin ? await listQueue() : { vendors: [], sponsors: [] };
+---
+
+<Base
+  hq
+  title={occasion ? `${occasion.name} | Timeless Consortium` : "Event | Timeless Consortium"}
+  description="Private event desk."
+  path={`/staff/events/${slug}`}
+  robots="noindex, nofollow"
+>
+  <HqShell member={member} path={`/staff/events/${slug}`}>
+    {
+      occasion ? (
+        <>
+          <EventBar event={occasion} />
+          <h1 class="hq-title">{occasion.name}</h1>
+          <p>
+            {occasion.dateLabel} · {occasion.venue}
+          </p>
+          {
+            occasion.builtin ? (
+              <ul class="event-facts">
+                <li>{summary.ticketsSold} tickets sold</li>
+                <li>{people.length} waitlist {people.length === 1 ? "signup" : "signups"}</li>
+                <li>{queue.vendors.length} vendor {queue.vendors.length === 1 ? "application" : "applications"}</li>
+                <li>{queue.sponsors.length} partner {queue.sponsors.length === 1 ? "inquiry" : "inquiries"}</li>
+              </ul>
+            ) : (
+              <p>Nothing has been recorded for this event.</p>
+            )
+          }
+        </>
+      ) : (
+        <p>That event is not on the desk.</p>
+      )
+    }
+  </HqShell>
+</Base>
