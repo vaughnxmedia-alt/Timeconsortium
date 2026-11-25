@@ -7,6 +7,7 @@ export default defineConfig({
   output: "static",
   adapter: vercel(),
   security: {
+    checkOrigin: false,
     allowedDomains: [
       { hostname: "www.timelessconsortium.com", protocol: "https" },
       { hostname: "timelessconsortium.com", protocol: "https" },
