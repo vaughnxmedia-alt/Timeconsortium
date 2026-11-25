@@ -538,12 +538,19 @@ export async function saveTicketListSignup(form: FormData) {
     createdAt: new Date().toISOString(),
     email,
   };
-  await locked(async () => {
-    const database = await readDatabase();
-    const exists = database.ticketList.some((item) => item.email === email);
-    if (!exists) database.ticketList.push(record);
-    await writeDatabase(database);
-  });
+  try {
+    await locked(async () => {
+      const database = await readDatabase();
+      const exists = database.ticketList.some((item) => item.email === email);
+      if (!exists) database.ticketList.push(record);
+      await writeDatabase(database);
+    });
+  } catch (error) {
+    console.error(
+      "Ticket list signup was emailed but not stored",
+      error instanceof Error ? error.message : error,
+    );
+  }
   return { saved: true as const };
 }
 
